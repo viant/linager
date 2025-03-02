@@ -128,17 +128,23 @@ type TouchPoint struct {
 For the following code:
 
 ```go
-package main
+package analyzer
 
-type Person struct {
+type Foo struct {
+	Name  string
+	Score int
+}
+
+type Bar struct {
 	Name string
-	Age  int
 }
 
 func main() {
-	p := Person{Name: "John", Age: 30}
-	if p.Age > 18 {
-		p.Name = "Adult: " + p.Name
+	b := Bar{Name: "XXXX"}
+
+	p := Foo{Name: "John", Score: 30}
+	if p.Score > 18 {
+		p.Name = "Adult: " + b.Name
 	}
 }
 ```
@@ -147,40 +153,171 @@ Linager produces detailed analysis like:
 
 ```yaml
 - identity:
-    ref: main:Person:Name
-    pkgPath: main
-    package: main
-    holderType: Person
-    name: Name
-    kind: string
+  ref: main:Foo:Name
+  pkgPath: main
+  package: main
+  holderType: Foo
+  name: Name
+  kind: string
   definition:
-    filePath: example.go
+    filePath: main.go
     lineNumber: 4
   writes:
     - codeLocation:
-        filePath: example.go
-        lineNumber: 9
-        columnStart: 6
-        columnEnd: 28
+        filePath: main.go
+        lineNumber: 15
+        columnStart: 11
+        columnEnd: 23
       context:
         function: main
     - codeLocation:
-        filePath: example.go
-        lineNumber: 11
+        filePath: main.go
+        lineNumber: 17
         columnStart: 3
         columnEnd: 9
       context:
         function: main
-      conditionalExpression: p.Age > 18
+      dependencies:
+        - b
+        - main:Bar:Name
+- identity:
+  ref: main:Foo:Score
+  pkgPath: main
+  package: main
+  holderType: Foo
+  name: Score
+  kind: int
+  definition:
+  filePath: main.go
+  lineNumber: 5
+  writes:
+  - codeLocation:
+      filePath: main.go
+      lineNumber: 15
+      columnStart: 25
+      columnEnd: 34
+    context:
+      function: main
+- identity:
+  ref: main:Bar:Name
+  pkgPath: main
+  package: main
+  holderType: Bar
+  name: Name
+  kind: string
+  definition:
+  filePath: main.go
+  lineNumber: 9
+  writes:
+  - codeLocation:
+      filePath: main.go
+      lineNumber: 13
+      columnStart: 11
+      columnEnd: 23
+    context:
+      function: main
   reads:
-    - codeLocation:
-        filePath: example.go
-        lineNumber: 11
-        columnStart: 22
-        columnEnd: 28
-      context:
-        function: main
-      conditionalExpression: p.Age > 18
+  - codeLocation:
+      filePath: main.go
+      lineNumber: 17
+      columnStart: 24
+      columnEnd: 30
+    context:
+      function: main
+  - codeLocation:
+      filePath: main.go
+      lineNumber: 17
+      columnStart: 24
+      columnEnd: 30
+    context:
+      function: main
+  - codeLocation:
+      filePath: main.go
+      lineNumber: 17
+      columnStart: 24
+      columnEnd: 30
+    context:
+      function: main
+  - identity:
+      ref: b
+      name: b
+      kind: main.Bar
+    definition:
+      filePath: main.go
+      lineNumber: 13
+    writes:
+      - codeLocation:
+          filePath: main.go
+          lineNumber: 13
+          columnStart: 2
+          columnEnd: 3
+        context:
+          function: main
+        dependencies:
+          - Name
+    reads:
+      - codeLocation:
+          filePath: main.go
+          lineNumber: 17
+          columnStart: 24
+          columnEnd: 25
+        context:
+          function: main
+      - codeLocation:
+          filePath: main.go
+          lineNumber: 17
+          columnStart: 24
+          columnEnd: 25
+        context:
+          function: main
+      - codeLocation:
+          filePath: main.go
+          lineNumber: 17
+          columnStart: 24
+          columnEnd: 25
+        context:
+          function: main
+  - identity:
+      ref: Name
+      name: Name
+      kind: string
+    definition:
+      filePath: main.go
+      lineNumber: 13
+  - identity:
+      ref: p
+      name: p
+      kind: main.Foo
+    definition:
+      filePath: main.go
+      lineNumber: 15
+    writes:
+      - codeLocation:
+          filePath: main.go
+          lineNumber: 15
+          columnStart: 2
+          columnEnd: 3
+        context:
+          function: main
+        dependencies:
+          - Score
+          - Name
+    reads:
+      - codeLocation:
+          filePath: main.go
+          lineNumber: 17
+          columnStart: 3
+          columnEnd: 4
+        context:
+          function: main
+  - identity:
+      ref: Score
+      name: Score
+      kind: int
+    definition:
+      filePath: main.go
+      lineNumber: 15
+
 ```
 
 ## Advanced Features

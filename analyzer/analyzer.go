@@ -13,6 +13,7 @@ import (
 	"golang.org/x/tools/go/packages"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -21,10 +22,10 @@ type visitor struct {
 	pkg            *types.Package
 	info           *types.Info
 	project        string
-	dataPoints     map[string]*linager.DataPoint // Map from variable name to DataPoint
+	dataPoints     map[string]*linager.DataPoint // Map from identity ref to DataPoint
 	dataPointsKey  []string
-	dataLinks      map[string][]string // Map from variable name to its dependencies
 	conditions     []string            // Stack of conditions
+	conditionDeps  map[string][]string // Map from condition expressions to dependencies
 	path           string              // File path
 	functionStack  []string            // Stack of function calls
 	methodContext  []methodInfo        // Stack of method context information
@@ -49,7 +50,7 @@ type ModuleInfo struct {
 	Dependencies map[string]string // module -> version
 }
 
-// AnalyzeSourceCode analyzes the given Go source code and returns the data linager information.
+// AnalyzeSourceCode analyzes the given Go source code and returns the data lineage information.
 func AnalyzeSourceCode(source, project, path string) ([]*linager.DataPoint, error) {
 	fset := token.NewFileSet()
 
@@ -80,14 +81,14 @@ func AnalyzeSourceCode(source, project, path string) ([]*linager.DataPoint, erro
 		modInfo, _ = LoadModuleInfo(dir)
 	}
 
-	// Now, traverse the AST and collect data linager info
+	// Now, traverse the AST and collect data lineage info
 	v := &visitor{
 		fset:           fset,
 		pkg:            pkg,
 		project:        project,
 		info:           info,
 		dataPoints:     make(map[string]*linager.DataPoint),
-		dataLinks:      make(map[string][]string),
+		conditionDeps:  make(map[string][]string),
 		path:           path,
 		functionStack:  []string{},
 		methodContext:  []methodInfo{},
@@ -109,7 +110,7 @@ func AnalyzeSourceCode(source, project, path string) ([]*linager.DataPoint, erro
 
 	ast.Walk(v, file)
 
-	// Process data links to establish dependencies
+	// Process dependencies
 	v.establishDependencies()
 
 	// Build the return data points list in sorted order
@@ -191,15 +192,22 @@ func (v *visitor) Visit(n ast.Node) ast.Visitor {
 		// Handle conditions
 		condStr := v.exprToString(node.Cond)
 		v.conditions = append(v.conditions, condStr)
-		// Visit the condition expression to capture variable reads
+
+		// Visit the condition expression to capture variable reads and their dependencies
 		v.handleExpression(node.Cond, false)
+
+		// Record all dependencies in this condition for later use
+		v.conditionDeps[condStr] = v.getDataPointsFromExpr(node.Cond)
+
 		// Visit inner statements
 		ast.Walk(v, node.Body)
 		// Handle Else branch if it exists
 		if node.Else != nil {
 			// For else blocks, use the negation of the condition
 			v.conditions = v.conditions[:len(v.conditions)-1]
-			v.conditions = append(v.conditions, fmt.Sprintf("!(%s)", condStr))
+			negCondStr := fmt.Sprintf("!(%s)", condStr)
+			v.conditions = append(v.conditions, negCondStr)
+			v.conditionDeps[negCondStr] = v.conditionDeps[condStr] // Same dependencies for negated condition
 			ast.Walk(v, node.Else)
 		}
 		// Pop condition
@@ -245,9 +253,13 @@ func (v *visitor) Visit(n ast.Node) ast.Visitor {
 
 						// Track dependency
 						rhsDeps := v.getDataPointsFromExpr(valueExpr)
-						for _, dep := range rhsDeps {
-							if dep != name.Name { // Avoid self-references
-								v.dataLinks[name.Name] = append(v.dataLinks[name.Name], dep)
+						if len(dp.Writes) > 0 {
+							writePoint := dp.Writes[len(dp.Writes)-1]
+							sort.Strings(rhsDeps)
+							for _, dep := range rhsDeps {
+								if dep != string(dp.Identity.Ref) { // Avoid self-references
+									writePoint.Dependencies = append(writePoint.Dependencies, linager.IdentityRef(dep))
+								}
 							}
 						}
 					}
@@ -259,34 +271,36 @@ func (v *visitor) Visit(n ast.Node) ast.Visitor {
 	return v
 }
 
-// handleAssignment processes assignment statements for data linager tracking
+// handleAssignment processes assignment statements for data lineage tracking
 func (v *visitor) handleAssignment(node *ast.AssignStmt) {
 	if len(node.Lhs) == 1 && len(node.Rhs) == 1 {
 		// Simple assignment: lhs = rhs
 		lhsExpr := node.Lhs[0]
 		rhsExpr := node.Rhs[0]
 
-		// Get the names
-		lhsName := v.exprToString(lhsExpr)
-		if lhsName == "_" {
-			// Skip underscore identifier
+		// Handle the LHS (writer)
+		lhsDP, lhsTP := v.handleExpression(lhsExpr, true)
+
+		// Skip underscore identifier
+		if id, isIdent := lhsExpr.(*ast.Ident); isIdent && id.Name == "_" {
 			v.handleExpression(rhsExpr, false) // Still process the rhs for reads
 			return
 		}
-
-		// Handle the LHS (writer)
-		lhsDP := v.handleExpression(lhsExpr, true)
 
 		// Handle the RHS (reader)
 		v.handleExpression(rhsExpr, false)
 
 		// Track dependency: lhs depends on rhs
-		if lhsDP != nil {
+		if lhsDP != nil && lhsTP != nil {
+			lhsRef := string(lhsDP.Identity.Ref)
 			// Get all dependencies from the right-hand side expression
 			rhsDeps := v.getDataPointsFromExpr(rhsExpr)
+			sort.Strings(rhsDeps)
 			for _, dep := range rhsDeps {
-				if dep != lhsName { // Avoid self-references
-					v.dataLinks[lhsName] = append(v.dataLinks[lhsName], dep)
+				if dep != lhsRef { // Avoid self-references
+					if !containsIdentityRef(lhsTP.Dependencies, linager.IdentityRef(dep)) {
+						lhsTP.Dependencies = append(lhsTP.Dependencies, linager.IdentityRef(dep))
+					}
 				}
 			}
 		}
@@ -294,13 +308,16 @@ func (v *visitor) handleAssignment(node *ast.AssignStmt) {
 		// Multiple assignments: a, b = c, d
 		for i, lhs := range node.Lhs {
 			// Skip underscore identifier
-			lhsName := v.exprToString(lhs)
-			if lhsName == "_" {
+			if id, isIdent := lhs.(*ast.Ident); isIdent && id.Name == "_" {
 				continue
 			}
 
 			// Handle LHS
-			lhsDP := v.handleExpression(lhs, true)
+			lhsDP, lhsTP := v.handleExpression(lhs, true)
+			if lhsDP == nil || lhsTP == nil {
+				continue
+			}
+			lhsRef := string(lhsDP.Identity.Ref)
 
 			// Handle RHS if available
 			if i < len(node.Rhs) {
@@ -308,11 +325,12 @@ func (v *visitor) handleAssignment(node *ast.AssignStmt) {
 				v.handleExpression(rhs, false)
 
 				// Track dependency
-				if lhsDP != nil {
-					rhsDeps := v.getDataPointsFromExpr(rhs)
-					for _, dep := range rhsDeps {
-						if dep != lhsName { // Avoid self-references
-							v.dataLinks[lhsName] = append(v.dataLinks[lhsName], dep)
+				rhsDeps := v.getDataPointsFromExpr(rhs)
+				sort.Strings(rhsDeps)
+				for _, dep := range rhsDeps {
+					if dep != lhsRef { // Avoid self-references
+						if !containsIdentityRef(lhsTP.Dependencies, linager.IdentityRef(dep)) {
+							lhsTP.Dependencies = append(lhsTP.Dependencies, linager.IdentityRef(dep))
 						}
 					}
 				}
@@ -366,7 +384,7 @@ func (v *visitor) handleTypeSpec(node *ast.TypeSpec) {
 					PkgPath:    packagePath,
 					Package:    packagePath,
 					HolderType: structName,
-					Name:       embeddedType, // Fix: Use just embeddedType as name
+					Name:       embeddedType,
 					Kind:       fieldType,
 				},
 				Definition: linager.CodeLocation{
@@ -420,7 +438,7 @@ func (v *visitor) handleTypeSpec(node *ast.TypeSpec) {
 					PkgPath:    packagePath,
 					Package:    packagePath,
 					HolderType: structName,
-					Name:       fieldName, // Fix: Use just fieldName as name
+					Name:       fieldName,
 					Kind:       fieldType,
 				},
 				Definition: linager.CodeLocation{
@@ -523,8 +541,8 @@ func (v *visitor) handleFuncDecl(node *ast.FuncDecl) {
 				v.updateTouchPoints(dp, true, name)
 				v.updateTouchPoints(dp, false, name)
 
-				v.dataPoints[paramName] = dp
-				v.dataPointsKey = append(v.dataPointsKey, paramName)
+				v.dataPoints[string(dp.Identity.Ref)] = dp
+				v.dataPointsKey = append(v.dataPointsKey, string(dp.Identity.Ref))
 			}
 		}
 	}
@@ -556,8 +574,8 @@ func (v *visitor) handleFuncDecl(node *ast.FuncDecl) {
 				// Named return values are considered written within the function
 				v.updateTouchPoints(dp, true, name)
 
-				v.dataPoints[returnName] = dp
-				v.dataPointsKey = append(v.dataPointsKey, returnName)
+				v.dataPoints[string(dp.Identity.Ref)] = dp
+				v.dataPointsKey = append(v.dataPointsKey, string(dp.Identity.Ref))
 			}
 		}
 	}
@@ -608,8 +626,15 @@ func (v *visitor) handleReturnStmt(node *ast.ReturnStmt) {
 				// If return value has a name, associate the dependencies
 				resultVar := v.currentFunc.Results().At(idx)
 				if resultVar.Name() != "" {
-					for _, dep := range deps {
-						v.dataLinks[resultVar.Name()] = append(v.dataLinks[resultVar.Name()], dep)
+					dp := v.getDataPoint(resultVar.Name(), expr)
+					if len(dp.Writes) > 0 {
+						writePoint := dp.Writes[len(dp.Writes)-1]
+						sort.Strings(deps)
+						for _, dep := range deps {
+							if dep != string(dp.Identity.Ref) { // Avoid self-references
+								writePoint.Dependencies = append(writePoint.Dependencies, linager.IdentityRef(dep))
+							}
+						}
 					}
 				}
 			}
@@ -617,60 +642,42 @@ func (v *visitor) handleReturnStmt(node *ast.ReturnStmt) {
 	}
 }
 
-// handleExpression processes an expression and returns the associated DataPoint
-func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) *linager.DataPoint {
+// handleExpression processes an expression and returns the associated DataPoint and TouchPoint (if any)
+func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) (*linager.DataPoint, *linager.TouchPoint) {
 	if expr == nil {
-		return nil
+		return nil, nil
 	}
 
 	switch e := expr.(type) {
 	case *ast.Ident:
 		varName := e.Name
 		if varName == "_" {
-			return nil // Skip underscore identifiers
+			return nil, nil // Skip underscore identifiers
 		}
 		dp := v.getDataPoint(varName, e)
-		v.updateTouchPoints(dp, isWrite, expr)
-		return dp
+		tp := v.updateTouchPoints(dp, isWrite, expr)
+		return dp, tp
 
 	case *ast.SelectorExpr:
 		// Handle struct field access or package member access
-		// e.X is the struct variable or package, e.Sel is the field or member
-		xStr := v.exprToString(e.X)
-		fieldName := e.Sel.Name
-
-		// Check if this is a package selection
-		if ident, ok := e.X.(*ast.Ident); ok {
-			if pkg, exists := v.importedPkgs[ident.Name]; exists {
-				// This is a package member access
-				pkgPath := pkg.Path()
-				fullName := fmt.Sprintf("%s.%s", pkgPath, fieldName)
-				dp := v.getDataPoint(fullName, e)
-				dp.Identity.PkgPath = pkgPath
-				dp.Identity.Package = pkgPath
-				dp.Identity.Name = fieldName // Fix: Use just fieldName as name
-				v.updateTouchPoints(dp, isWrite, expr)
-				return dp
-			}
-		}
 
 		// Try to resolve the package path and struct name for the field
 		id := v.resolveStructFieldID(e)
 		if id == "" {
 			// Fall back to basic format if we can't resolve ID
-			id = fmt.Sprintf("%s.%s", xStr, fieldName)
+			id = v.exprToString(e)
 		}
 
 		dp := v.getDataPoint(id, e)
-		v.updateTouchPoints(dp, isWrite, expr)
+		tp := v.updateTouchPoints(dp, isWrite, expr)
 
-		// Also handle the struct variable itself as a reader
+		// For field selections, also process the container expression (the struct/receiver)
 		v.handleExpression(e.X, false)
-		return dp
+		return dp, tp
 
 	case *ast.CallExpr:
 		// Function call, handle function and arguments
-		funcDP := v.handleExpression(e.Fun, false)
+		funcDP, _ := v.handleExpression(e.Fun, false)
 
 		// Track call graph information
 		funcName := v.exprToString(e.Fun)
@@ -681,34 +688,35 @@ func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) *linager.DataPoi
 			v.handleExpression(arg, false)
 
 			// Track argument dependencies
-			argName := v.exprToString(arg)
-
-			// Add dependencies for function call result
-			v.dataLinks[callExprStr] = append(v.dataLinks[callExprStr], argName)
+			argDeps := v.getDataPointsFromExpr(arg)
+			for _, argDep := range argDeps {
+				v.callGraph[funcName] = append(v.callGraph[funcName], argDep)
+			}
 		}
 
 		// If we have function call graph data, use it for dependencies
 		if deps, ok := v.callGraph[funcName]; ok {
-			for _, dep := range deps {
-				v.dataLinks[callExprStr] = append(v.dataLinks[callExprStr], dep)
-			}
+			v.callGraph[callExprStr] = append(v.callGraph[callExprStr], deps...)
 		}
 
-		return funcDP
+		return funcDP, nil
 
 	case *ast.BinaryExpr:
 		// Handle both sides of binary expressions
-		leftDP := v.handleExpression(e.X, false)
-		rightDP := v.handleExpression(e.Y, false)
+		v.handleExpression(e.X, false)
+		v.handleExpression(e.Y, false)
 
 		// For expressions like a + b, track that result depends on both operands
 		exprStr := v.exprToString(e)
-		if leftDP != nil {
-			v.dataLinks[exprStr] = append(v.dataLinks[exprStr], v.exprToString(e.X))
-		}
-		if rightDP != nil {
-			v.dataLinks[exprStr] = append(v.dataLinks[exprStr], v.exprToString(e.Y))
-		}
+
+		// Track dependencies from both sides
+		xDeps := v.getDataPointsFromExpr(e.X)
+		yDeps := v.getDataPointsFromExpr(e.Y)
+
+		v.callGraph[exprStr] = append(v.callGraph[exprStr], xDeps...)
+		v.callGraph[exprStr] = append(v.callGraph[exprStr], yDeps...)
+
+		return nil, nil // Binary expressions themselves don't have a DataPoint
 
 	case *ast.UnaryExpr:
 		return v.handleExpression(e.X, false)
@@ -719,11 +727,11 @@ func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) *linager.DataPoi
 
 		// Track data flow for indexed access
 		exprStr := v.exprToString(e)
-		arrayName := v.exprToString(e.X)
-		v.dataLinks[exprStr] = append(v.dataLinks[exprStr], arrayName)
+		arrayDeps := v.getDataPointsFromExpr(e.X)
+		v.callGraph[exprStr] = append(v.callGraph[exprStr], arrayDeps...)
 
 	case *ast.ParenExpr:
-		return v.handleExpression(e.X, false)
+		return v.handleExpression(e.X, isWrite)
 
 	case *ast.TypeAssertExpr:
 		return v.handleExpression(e.X, false)
@@ -783,16 +791,21 @@ func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) *linager.DataPoi
 					ref := string(linager.MakeStructFieldIdentityRef(packagePath, structType, fieldName))
 
 					dp := v.getDataPoint(ref, kv.Value)
-					v.updateTouchPoints(dp, true, e) // Writing to field
+					tp := v.updateTouchPoints(dp, true, kv) // Writing to field
 
 					// Process the value expression
 					v.handleExpression(kv.Value, false)
 
 					// Track dependency
 					rhsDeps := v.getDataPointsFromExpr(kv.Value)
-					for _, dep := range rhsDeps {
-						if dep != ref { // Avoid self-references
-							v.dataLinks[ref] = append(v.dataLinks[ref], dep)
+					if tp != nil {
+						sort.Strings(rhsDeps)
+						for _, dep := range rhsDeps {
+							if dep != ref { // Avoid self-references
+								if !containsIdentityRef(tp.Dependencies, linager.IdentityRef(dep)) {
+									tp.Dependencies = append(tp.Dependencies, linager.IdentityRef(dep))
+								}
+							}
 						}
 					}
 				}
@@ -826,14 +839,18 @@ func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) *linager.DataPoi
 
 		// Track dependency
 		exprStr := v.exprToString(e)
-		sliceObj := v.exprToString(e.X)
-		v.dataLinks[exprStr] = append(v.dataLinks[exprStr], sliceObj)
+		sliceDeps := v.getDataPointsFromExpr(e.X)
+		v.callGraph[exprStr] = append(v.callGraph[exprStr], sliceDeps...)
+
+	case *ast.BasicLit:
+		// Literals have no dependencies
+		return nil, nil
 	}
 
-	return nil
+	return nil, nil
 }
 
-// getDataPointsFromExpr extracts all variable/field names from an expression
+// getDataPointsFromExpr extracts all identity refs from an expression
 func (v *visitor) getDataPointsFromExpr(expr ast.Expr) []string {
 	var results []string
 
@@ -841,30 +858,25 @@ func (v *visitor) getDataPointsFromExpr(expr ast.Expr) []string {
 	case *ast.Ident:
 		// Simple variable
 		if e.Name != "_" { // Skip underscore identifiers
-			return []string{e.Name}
+			dp := v.getDataPoint(e.Name, e)
+			if dp != nil {
+				results = append(results, string(dp.Identity.Ref))
+			}
 		}
-		return []string{}
-
 	case *ast.SelectorExpr:
 		// Struct field access: x.y or package.member
-		id := v.resolveStructFieldID(e)
-		if id == "" {
-			// Fall back to basic format
-			fullSelector := v.exprToString(e)
-			results = append(results, fullSelector)
-		} else {
-			results = append(results, id)
+		dp, _ := v.handleExpression(e, false)
+		if dp != nil {
+			results = append(results, string(dp.Identity.Ref))
 		}
 
-		// Also include the struct variable itself as a dependency
-		structDeps := v.getDataPointsFromExpr(e.X)
-		results = append(results, structDeps...)
-
+		// Also include dependencies from X
+		xDeps := v.getDataPointsFromExpr(e.X)
+		results = append(results, xDeps...)
 	case *ast.BinaryExpr:
 		// Both sides of binary expressions
 		results = append(results, v.getDataPointsFromExpr(e.X)...)
 		results = append(results, v.getDataPointsFromExpr(e.Y)...)
-
 	case *ast.CallExpr:
 		// Function calls
 		funcName := v.exprToString(e.Fun)
@@ -879,35 +891,28 @@ func (v *visitor) getDataPointsFromExpr(expr ast.Expr) []string {
 		if deps, ok := v.callGraph[funcName]; ok {
 			results = append(results, deps...)
 		}
-
 	case *ast.ParenExpr:
 		// Parenthesized expressions
 		results = append(results, v.getDataPointsFromExpr(e.X)...)
-
 	case *ast.UnaryExpr:
 		// Unary expressions
 		results = append(results, v.getDataPointsFromExpr(e.X)...)
-
 	case *ast.IndexExpr:
 		// Array indexing: arr[i]
 		results = append(results, v.getDataPointsFromExpr(e.X)...)
 		results = append(results, v.getDataPointsFromExpr(e.Index)...)
-
 	case *ast.CompositeLit:
 		// Composite literals
 		for _, elt := range e.Elts {
 			results = append(results, v.getDataPointsFromExpr(elt)...)
 		}
-
 	case *ast.KeyValueExpr:
 		// Key-value pairs
 		results = append(results, v.getDataPointsFromExpr(e.Key)...)
 		results = append(results, v.getDataPointsFromExpr(e.Value)...)
-
 	case *ast.StarExpr:
 		// Pointer dereference
 		results = append(results, v.getDataPointsFromExpr(e.X)...)
-
 	case *ast.SliceExpr:
 		// Slice expressions
 		results = append(results, v.getDataPointsFromExpr(e.X)...)
@@ -920,6 +925,19 @@ func (v *visitor) getDataPointsFromExpr(expr ast.Expr) []string {
 		if e.Max != nil {
 			results = append(results, v.getDataPointsFromExpr(e.Max)...)
 		}
+	case *ast.BasicLit:
+		// Literals have no dependencies
+		// Do nothing
+	}
+
+	// Remove duplicates
+	uniqueResults := make(map[string]struct{})
+	for _, r := range results {
+		uniqueResults[r] = struct{}{}
+	}
+	results = make([]string, 0, len(uniqueResults))
+	for r := range uniqueResults {
+		results = append(results, r)
 	}
 
 	return results
@@ -974,23 +992,34 @@ func (v *visitor) resolveStructFieldID(expr *ast.SelectorExpr) string {
 	return ""
 }
 
-// getDataPoint creates or retrieves a DataPoint for the given variable name
+// getDataPoint creates or retrieves a DataPoint for the given identity reference
 func (v *visitor) getDataPoint(varName string, expr ast.Node) *linager.DataPoint {
+	// Resolve identity ref from varName and expr
+	var identityRef linager.IdentityRef
+	// For struct fields, varName would be the identity ref
+	if strings.Contains(varName, ":") {
+		identityRef = linager.IdentityRef(varName)
+	} else {
+		// For variables, use the variable name as identity ref
+		identityRef = linager.IdentityRef(varName)
+	}
+
 	// Check if this datapoint already exists
-	dp, exists := v.dataPoints[varName]
+	dp, exists := v.dataPoints[string(identityRef)]
 	if !exists {
 		// Create new DataPoint
 		kindStr := v.getTypeOf(expr)
 
 		// Parse the field name from the identity reference if it's a struct field
-		var name, holderType string
+		var name, holderType, pkgPath string
 
 		// Check if this is a struct field reference
-		identityParts := strings.Split(varName, ":")
+		identityParts := strings.Split(string(identityRef), ":")
 		if len(identityParts) == 3 && identityParts[0] != "" { // format like "pkgpath:Struct:Field"
-			// Extract the field name from the ref
-			name = identityParts[2]
+			// Extract the field name and package from the ref
+			pkgPath = identityParts[0]
 			holderType = identityParts[1]
+			name = identityParts[2]
 		} else {
 			// For regular variables or other identities
 			name = varName
@@ -1002,7 +1031,9 @@ func (v *visitor) getDataPoint(varName string, expr ast.Node) *linager.DataPoint
 
 		dp = &linager.DataPoint{
 			Identity: linager.Identity{
-				Ref:        linager.IdentityRef(varName),
+				Ref:        identityRef,
+				PkgPath:    pkgPath,
+				Package:    pkgPath,
 				Name:       name,
 				HolderType: holderType,
 				Kind:       kindStr,
@@ -1016,168 +1047,11 @@ func (v *visitor) getDataPoint(varName string, expr ast.Node) *linager.DataPoint
 			Reads:    []*linager.TouchPoint{},
 		}
 
-		v.dataPoints[varName] = dp
-		v.dataPointsKey = append(v.dataPointsKey, varName)
+		v.dataPoints[string(identityRef)] = dp
+		v.dataPointsKey = append(v.dataPointsKey, string(identityRef))
 	}
 
 	return dp
-}
-
-// updateTouchPoints adds read/write information to a DataPoint
-func (v *visitor) updateTouchPoints(dp *linager.DataPoint, isWrite bool, expr ast.Node) {
-	condition := v.currentCondition()
-
-	// Get position information from the AST node
-	pos := v.fset.Position(expr.Pos())
-	lineNumber := pos.Line
-
-	// Calculate column end position based on expr source
-	var exprStr string
-	if astExpr, ok := expr.(ast.Expr); ok {
-		exprStr = v.exprToString(astExpr)
-	} else {
-		// For non-expression nodes, just use a reasonable default
-		exprStr = "expr"
-	}
-	columnEnd := pos.Column + len(exprStr)
-
-	// Create the TouchContext from the current function/method context
-	context := linager.TouchContext{}
-	if len(v.methodContext) > 0 {
-		currentCtx := v.methodContext[len(v.methodContext)-1]
-		if currentCtx.holderType != "" {
-			// This is a method
-			context.MethodName = currentCtx.methodName
-			context.HolderType = currentCtx.holderType
-		} else {
-			// This is a function
-			context.FunctionName = currentCtx.methodName
-		}
-	}
-
-	touchPoint := &linager.TouchPoint{
-		CodeLocation: linager.CodeLocation{
-			FilePath:    v.path,
-			LineNumber:  lineNumber,
-			ColumnStart: pos.Column,
-			ColumnEnd:   columnEnd,
-		},
-		Context: context,
-	}
-
-	if condition != "" {
-		touchPoint.ConditionalExpression = condition
-	}
-
-	if isWrite {
-		dp.Writes = append(dp.Writes, touchPoint)
-	} else {
-		dp.Reads = append(dp.Reads, touchPoint)
-	}
-}
-
-// establishDependencies builds the dependency graph from collected data links
-func (v *visitor) establishDependencies() {
-	// For each data point, establish its dependencies
-	for target, dependencies := range v.dataLinks {
-		targetDP := v.dataPoints[target]
-		if targetDP == nil {
-			continue
-		}
-
-		// Add dependencies to each relevant touch point
-		for _, dependency := range dependencies {
-			depDP := v.dataPoints[dependency]
-			if depDP == nil {
-				continue
-			}
-
-			// Add dependency information to write points
-			for _, writePoint := range targetDP.Writes {
-				depRef := depDP.Identity.Ref
-				if depRef != "" && !containsIdentityRef(writePoint.Dependencies, depRef) {
-					writePoint.Dependencies = append(writePoint.Dependencies, depRef)
-				}
-			}
-		}
-	}
-
-	// Apply transitive dependencies from call graph
-	v.applyTransitiveDependencies()
-
-	// Clean up redundant information
-	v.removeDuplicateDependencies()
-}
-
-// applyTransitiveDependencies follows the call graph to find all transitive dependencies
-func (v *visitor) applyTransitiveDependencies() {
-	// Keep track of processed functions to avoid cycles
-	processed := make(map[string]bool)
-
-	// Helper function to recursively find all dependencies
-	var findAllDependencies func(funcName string) []string
-	findAllDependencies = func(funcName string) []string {
-		if processed[funcName] {
-			return nil // Already processed this function, avoid cycles
-		}
-		processed[funcName] = true
-
-		result := make([]string, 0)
-		// Get direct dependencies
-		directDeps := v.callGraph[funcName]
-		result = append(result, directDeps...)
-
-		// Get transitive dependencies
-		for _, dep := range directDeps {
-			// If the dependency is a function, get its dependencies
-			if _, ok := v.callGraph[dep]; ok {
-				transitiveDeps := findAllDependencies(dep)
-				result = append(result, transitiveDeps...)
-			}
-		}
-
-		return result
-	}
-
-	// For each function, find all its transitive dependencies
-	for funcName := range v.callGraph {
-		processed = make(map[string]bool) // Reset for each function
-		allDeps := findAllDependencies(funcName)
-
-		// Update the call graph with all dependencies
-		v.callGraph[funcName] = allDeps
-	}
-}
-
-// Helper function to check if a string is in a slice
-func containsIdentityRef(slice []linager.IdentityRef, ref linager.IdentityRef) bool {
-	for _, r := range slice {
-		if r == ref {
-			return true
-		}
-	}
-	return false
-}
-
-// removeDuplicateDependencies removes duplicate dependencies from touch points
-func (v *visitor) removeDuplicateDependencies() {
-	for _, dp := range v.dataPoints {
-		// Deduplicate dependencies in write points
-		for _, writePoint := range dp.Writes {
-			if len(writePoint.Dependencies) > 0 {
-				uniqueDeps := make([]linager.IdentityRef, 0, len(writePoint.Dependencies))
-				seen := make(map[linager.IdentityRef]bool)
-
-				for _, dep := range writePoint.Dependencies {
-					if !seen[dep] {
-						seen[dep] = true
-						uniqueDeps = append(uniqueDeps, dep)
-					}
-				}
-				writePoint.Dependencies = uniqueDeps
-			}
-		}
-	}
 }
 
 // exprToString converts an AST expression to its string representation
@@ -1281,14 +1155,6 @@ func (v *visitor) inferTypeFromContext(expr ast.Expr) string {
 	return ""
 }
 
-// currentCondition returns the current condition stack as a string
-func (v *visitor) currentCondition() string {
-	if len(v.conditions) == 0 {
-		return ""
-	}
-	return strings.Join(v.conditions, " && ")
-}
-
 // LoadProject loads a Go project using go/packages
 func LoadProject(dir string) ([]*packages.Package, error) {
 	cfg := &packages.Config{
@@ -1325,7 +1191,6 @@ func AnalyzePackages(pkgs []*packages.Package) ([]*linager.DataPoint, error) {
 				pkg:            pkg.Types,
 				info:           pkg.TypesInfo,
 				dataPoints:     make(map[string]*linager.DataPoint),
-				dataLinks:      make(map[string][]string),
 				path:           fileName,
 				callGraph:      make(map[string][]string),
 				functionStack:  []string{},

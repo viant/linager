@@ -27,8 +27,8 @@ type CodeLocation struct {
 
 // TouchContext provides context about where data is accessed
 type TouchContext struct {
-	FunctionName string `yaml:"function,omitempty"`     // Function name
-	MethodName   string `yaml:"method,omitempty"`       // Method name
+	Function     string `yaml:"function,omitempty"`     // Function name
+	Method       string `yaml:"method,omitempty"`       // Method name
 	HolderType   string `yaml:"holderType,omitempty"`   // Type on which method is called
 	IsTransitive bool   `yaml:"isTransitive,omitempty"` // Whether this is a transitive access
 }

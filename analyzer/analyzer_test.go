@@ -54,11 +54,19 @@ func main() {
     - codeLocation:
         filePath: example.go
         lineNumber: 16
-        columnStart: 9
-        columnEnd: 33
+        columnStart: 13
+        columnEnd: 18
       context:
         function: main
   reads:
+    - codeLocation:
+        filePath: example.go
+        lineNumber: 21
+        columnStart: 8
+        columnEnd: 14
+      context:
+        function: main
+      conditionalExpression: x > 10
     - codeLocation:
         filePath: example.go
         lineNumber: 21
@@ -81,8 +89,8 @@ func main() {
     - codeLocation:
         filePath: example.go
         lineNumber: 16
-        columnStart: 9
-        columnEnd: 33
+        columnStart: 20
+        columnEnd: 32
       context:
         function: main
 - identity:
@@ -103,6 +111,8 @@ func main() {
         columnEnd: 9
       context:
         function: main
+      dependencies:
+        - id
       conditionalExpression: x > 20
 - identity:
     ref: foo
@@ -119,6 +129,9 @@ func main() {
         columnEnd: 5
       context:
         function: main
+      dependencies:
+        - Id
+        - Name
   reads:
     - codeLocation:
         filePath: example.go
@@ -128,6 +141,28 @@ func main() {
       context:
         function: main
       conditionalExpression: x > 10
+    - codeLocation:
+        filePath: example.go
+        lineNumber: 21
+        columnStart: 8
+        columnEnd: 11
+      context:
+        function: main
+      conditionalExpression: x > 10
+- identity:
+    ref: Id
+    name: Id
+    kind: int
+  definition:
+    filePath: example.go
+    lineNumber: 16
+- identity:
+    ref: Name
+    name: Name
+    kind: string
+  definition:
+    filePath: example.go
+    lineNumber: 16
 - identity:
     ref: bar
     name: bar
@@ -167,6 +202,8 @@ func main() {
         columnEnd: 3
       context:
         function: main
+      dependencies:
+        - rand.Intn
   reads:
     - codeLocation:
         filePath: example.go
@@ -185,10 +222,8 @@ func main() {
         function: main
       conditionalExpression: x > 20
 - identity:
-    ref: math/rand.Intn
-    pkgPath: math/rand
-    package: math/rand
-    holderType: math/rand
+    ref: rand.Intn
+    holderType: rand
     name: Intn
     kind: func(n int) int
   definition:
@@ -200,6 +235,21 @@ func main() {
         lineNumber: 18
         columnStart: 7
         columnEnd: 16
+      context:
+        function: main
+- identity:
+    ref: rand
+    name: rand
+    kind: invalid type
+  definition:
+    filePath: example.go
+    lineNumber: 18
+  reads:
+    - codeLocation:
+        filePath: example.go
+        lineNumber: 18
+        columnStart: 7
+        columnEnd: 11
       context:
         function: main
 - identity:
@@ -217,9 +267,6 @@ func main() {
         columnEnd: 4
       context:
         function: main
-      dependencies:
-        - main:Foo:Id
-        - foo
     - codeLocation:
         filePath: example.go
         lineNumber: 21
@@ -228,8 +275,8 @@ func main() {
       context:
         function: main
       dependencies:
-        - main:Foo:Id
         - foo
+        - main:Foo:Id
       conditionalExpression: x > 10
   reads:
     - codeLocation:
@@ -271,8 +318,7 @@ func main() {
 	user.Name = "Jane Doe"
 }
 `,
-			expectYaml: `
-- identity:
+			expectYaml: `- identity:
     ref: main:User:ID
     pkgPath: main
     package: main
@@ -287,12 +333,19 @@ func main() {
   writes:
     - codeLocation:
         filePath: struct_tags.go
-        lineNumber: 14
-        columnStart: 10
-        columnEnd: 72
+        lineNumber: 15
+        columnStart: 3
+        columnEnd: 8
       context:
         function: main
   reads:
+    - codeLocation:
+        filePath: struct_tags.go
+        lineNumber: 21
+        columnStart: 8
+        columnEnd: 15
+      context:
+        function: main
     - codeLocation:
         filePath: struct_tags.go
         lineNumber: 21
@@ -315,9 +368,9 @@ func main() {
   writes:
     - codeLocation:
         filePath: struct_tags.go
-        lineNumber: 14
-        columnStart: 10
-        columnEnd: 72
+        lineNumber: 16
+        columnStart: 3
+        columnEnd: 19
       context:
         function: main
     - codeLocation:
@@ -342,9 +395,9 @@ func main() {
   writes:
     - codeLocation:
         filePath: struct_tags.go
-        lineNumber: 14
-        columnStart: 10
-        columnEnd: 72
+        lineNumber: 17
+        columnStart: 3
+        columnEnd: 28
       context:
         function: main
 - identity:
@@ -374,7 +427,18 @@ func main() {
         columnEnd: 6
       context:
         function: main
+      dependencies:
+        - Email
+        - ID
+        - Name
   reads:
+    - codeLocation:
+        filePath: struct_tags.go
+        lineNumber: 21
+        columnStart: 8
+        columnEnd: 12
+      context:
+        function: main
     - codeLocation:
         filePath: struct_tags.go
         lineNumber: 21
@@ -389,6 +453,27 @@ func main() {
         columnEnd: 6
       context:
         function: main
+- identity:
+    ref: ID
+    name: ID
+    kind: int
+  definition:
+    filePath: struct_tags.go
+    lineNumber: 15
+- identity:
+    ref: Name
+    name: Name
+    kind: string
+  definition:
+    filePath: struct_tags.go
+    lineNumber: 16
+- identity:
+    ref: Email
+    name: Email
+    kind: string
+  definition:
+    filePath: struct_tags.go
+    lineNumber: 17
 - identity:
     ref: id
     name: id
@@ -414,8 +499,7 @@ func main() {
         columnStart: 6
         columnEnd: 8
       context:
-        function: main
-`,
+        function: main`,
 		},
 		{
 			description: "Generics analysis",
@@ -463,6 +547,13 @@ func main() {
         columnEnd: 16
       context:
         function: Process
+    - codeLocation:
+        filePath: generics.go
+        lineNumber: 11
+        columnStart: 9
+        columnEnd: 16
+      context:
+        function: Process
 - identity:
     ref: c
     name: c
@@ -495,6 +586,13 @@ func main() {
         columnEnd: 10
       context:
         function: Process
+    - codeLocation:
+        filePath: generics.go
+        lineNumber: 11
+        columnStart: 9
+        columnEnd: 10
+      context:
+        function: Process
 - identity:
     ref: intContainer
     name: intContainer
@@ -510,6 +608,8 @@ func main() {
         columnEnd: 14
       context:
         function: main
+      dependencies:
+        - Value
   reads:
     - codeLocation:
         filePath: generics.go
@@ -520,6 +620,8 @@ func main() {
         function: main
 - identity:
     ref: main:Container[int]:Value
+    pkgPath: main
+    package: main
     holderType: Container[int]
     name: Value
     kind: int
@@ -530,10 +632,17 @@ func main() {
     - codeLocation:
         filePath: generics.go
         lineNumber: 16
-        columnStart: 18
-        columnEnd: 43
+        columnStart: 33
+        columnEnd: 42
       context:
         function: main
+- identity:
+    ref: Value
+    name: Value
+    kind: int
+  definition:
+    filePath: generics.go
+    lineNumber: 16
 - identity:
     ref: intValue
     name: intValue
@@ -551,9 +660,9 @@ func main() {
         function: main
       dependencies:
         - Process
+        - c
         - intContainer
         - main:Container[T]:Value
-        - c
   reads:
     - codeLocation:
         filePath: generics.go
@@ -599,6 +708,8 @@ func main() {
         columnEnd: 14
       context:
         function: main
+      dependencies:
+        - Value
   reads:
     - codeLocation:
         filePath: generics.go
@@ -609,6 +720,8 @@ func main() {
         function: main
 - identity:
     ref: main:Container[string]:Value
+    pkgPath: main
+    package: main
     holderType: Container[string]
     name: Value
     kind: string
@@ -619,8 +732,8 @@ func main() {
     - codeLocation:
         filePath: generics.go
         lineNumber: 21
-        columnStart: 18
-        columnEnd: 51
+        columnStart: 36
+        columnEnd: 50
       context:
         function: main
 - identity:
@@ -640,9 +753,10 @@ func main() {
         function: main
       dependencies:
         - Process
-        - strContainer
-        - main:Container[T]:Value
         - c
+        - intContainer
+        - main:Container[T]:Value
+        - strContainer
   reads:
     - codeLocation:
         filePath: generics.go
@@ -717,9 +831,9 @@ func main() {
   writes:
     - codeLocation:
         filePath: complex_flow.go
-        lineNumber: 17
-        columnStart: 7
-        columnEnd: 130
+        lineNumber: 18
+        columnStart: 3
+        columnEnd: 15
       context:
         function: main
     - codeLocation:
@@ -729,6 +843,8 @@ func main() {
         columnEnd: 9
       context:
         function: main
+      dependencies:
+        - p
       conditionalExpression: adultYears > 0
   reads:
     - codeLocation:
@@ -738,6 +854,29 @@ func main() {
         columnEnd: 16
       context:
         function: main
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 28
+        columnStart: 10
+        columnEnd: 16
+      context:
+        function: main
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 41
+        columnStart: 12
+        columnEnd: 18
+      context:
+        function: main
+      conditionalExpression: adultYears > 0
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 41
+        columnStart: 12
+        columnEnd: 18
+      context:
+        function: main
+      conditionalExpression: adultYears > 0
     - codeLocation:
         filePath: complex_flow.go
         lineNumber: 41
@@ -759,9 +898,9 @@ func main() {
   writes:
     - codeLocation:
         filePath: complex_flow.go
-        lineNumber: 17
-        columnStart: 7
-        columnEnd: 130
+        lineNumber: 19
+        columnStart: 3
+        columnEnd: 10
       context:
         function: main
   reads:
@@ -773,6 +912,36 @@ func main() {
       context:
         function: main
       conditionalExpression: p.Age > 18
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 34
+        columnStart: 5
+        columnEnd: 10
+      context:
+        function: main
+      conditionalExpression: p.Age > 18
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 34
+        columnStart: 5
+        columnEnd: 10
+      context:
+        function: main
+      conditionalExpression: p.Age > 18
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 39
+        columnStart: 16
+        columnEnd: 21
+      context:
+        function: main
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 39
+        columnStart: 16
+        columnEnd: 21
+      context:
+        function: main
     - codeLocation:
         filePath: complex_flow.go
         lineNumber: 39
@@ -793,12 +962,30 @@ func main() {
   writes:
     - codeLocation:
         filePath: complex_flow.go
-        lineNumber: 17
-        columnStart: 7
-        columnEnd: 130
+        lineNumber: 20
+        columnStart: 3
+        columnEnd: 85
       context:
         function: main
+      dependencies:
+        - City
+        - Street
+        - ZipCode
   reads:
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 31
+        columnStart: 10
+        columnEnd: 19
+      context:
+        function: main
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 31
+        columnStart: 10
+        columnEnd: 19
+      context:
+        function: main
     - codeLocation:
         filePath: complex_flow.go
         lineNumber: 31
@@ -827,9 +1014,9 @@ func main() {
   writes:
     - codeLocation:
         filePath: complex_flow.go
-        lineNumber: 20
-        columnStart: 12
-        columnEnd: 85
+        lineNumber: 21
+        columnStart: 4
+        columnEnd: 25
       context:
         function: main
 - identity:
@@ -845,12 +1032,19 @@ func main() {
   writes:
     - codeLocation:
         filePath: complex_flow.go
-        lineNumber: 20
-        columnStart: 12
-        columnEnd: 85
+        lineNumber: 22
+        columnStart: 4
+        columnEnd: 19
       context:
         function: main
   reads:
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 31
+        columnStart: 10
+        columnEnd: 24
+      context:
+        function: main
     - codeLocation:
         filePath: complex_flow.go
         lineNumber: 31
@@ -871,9 +1065,9 @@ func main() {
   writes:
     - codeLocation:
         filePath: complex_flow.go
-        lineNumber: 20
-        columnStart: 12
-        columnEnd: 85
+        lineNumber: 23
+        columnStart: 4
+        columnEnd: 20
       context:
         function: main
     - codeLocation:
@@ -899,7 +1093,21 @@ func main() {
         columnEnd: 3
       context:
         function: main
+      dependencies:
+        - Address
+        - Age
+        - City
+        - Name
+        - Street
+        - ZipCode
   reads:
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 28
+        columnStart: 10
+        columnEnd: 11
+      context:
+        function: main
     - codeLocation:
         filePath: complex_flow.go
         lineNumber: 28
@@ -914,6 +1122,36 @@ func main() {
         columnEnd: 11
       context:
         function: main
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 31
+        columnStart: 10
+        columnEnd: 11
+      context:
+        function: main
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 31
+        columnStart: 10
+        columnEnd: 11
+      context:
+        function: main
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 34
+        columnStart: 5
+        columnEnd: 6
+      context:
+        function: main
+      conditionalExpression: p.Age > 18
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 34
+        columnStart: 5
+        columnEnd: 6
+      context:
+        function: main
+      conditionalExpression: p.Age > 18
     - codeLocation:
         filePath: complex_flow.go
         lineNumber: 34
@@ -939,6 +1177,20 @@ func main() {
         function: main
     - codeLocation:
         filePath: complex_flow.go
+        lineNumber: 39
+        columnStart: 16
+        columnEnd: 17
+      context:
+        function: main
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 39
+        columnStart: 16
+        columnEnd: 17
+      context:
+        function: main
+    - codeLocation:
+        filePath: complex_flow.go
         lineNumber: 41
         columnStart: 3
         columnEnd: 4
@@ -953,6 +1205,64 @@ func main() {
       context:
         function: main
       conditionalExpression: adultYears > 0
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 41
+        columnStart: 12
+        columnEnd: 13
+      context:
+        function: main
+      conditionalExpression: adultYears > 0
+    - codeLocation:
+        filePath: complex_flow.go
+        lineNumber: 41
+        columnStart: 12
+        columnEnd: 13
+      context:
+        function: main
+      conditionalExpression: adultYears > 0
+- identity:
+    ref: Street
+    name: Street
+    kind: string
+  definition:
+    filePath: complex_flow.go
+    lineNumber: 21
+- identity:
+    ref: City
+    name: City
+    kind: string
+  definition:
+    filePath: complex_flow.go
+    lineNumber: 22
+- identity:
+    ref: ZipCode
+    name: ZipCode
+    kind: string
+  definition:
+    filePath: complex_flow.go
+    lineNumber: 23
+- identity:
+    ref: Name
+    name: Name
+    kind: string
+  definition:
+    filePath: complex_flow.go
+    lineNumber: 18
+- identity:
+    ref: Age
+    name: Age
+    kind: int
+  definition:
+    filePath: complex_flow.go
+    lineNumber: 19
+- identity:
+    ref: Address
+    name: Address
+    kind: main.Address
+  definition:
+    filePath: complex_flow.go
+    lineNumber: 20
 - identity:
     ref: name
     name: name
