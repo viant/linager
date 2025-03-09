@@ -8,8 +8,8 @@ import (
 )
 
 // processFields processes struct fields
-func (i *Inspector) processFields(fields *ast.FieldList, importMap map[string]string) []info.Field {
-	var result []info.Field
+func (i *Inspector) processFields(fields *ast.FieldList, importMap map[string]string) []*info.Field {
+	var result []*info.Field
 
 	for _, field := range fields.List {
 		// Skip if this is an embedded field with a receiver and we're not including unexported
@@ -51,7 +51,7 @@ func (i *Inspector) processFields(fields *ast.FieldList, importMap map[string]st
 			}
 
 			_, annotation := parseCommentsAndAnnotations(comment)
-			result = append(result, info.Field{
+			result = append(result, &info.Field{
 				Type:       fieldType,
 				Tag:        tag,
 				Comment:    comment,
@@ -70,7 +70,7 @@ func (i *Inspector) processFields(fields *ast.FieldList, importMap map[string]st
 					Name: exprToString(field.Type, importMap),
 				}
 
-				result = append(result, info.Field{
+				result = append(result, &info.Field{
 					Name:       name.Name,
 					Type:       fieldType,
 					Tag:        tag,

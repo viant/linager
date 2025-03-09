@@ -179,15 +179,15 @@ func isDigit(r rune) bool {
 }
 
 // extractTypeParams extracts type parameters from an ast.FieldList
-func extractTypeParams(params *ast.FieldList, importMap map[string]string) []info.TypeParam {
+func extractTypeParams(params *ast.FieldList, importMap map[string]string) []*info.TypeParam {
 	if params == nil {
 		return nil
 	}
 
-	var result []info.TypeParam
+	var result []*info.TypeParam
 	for _, param := range params.List {
 		for _, name := range param.Names {
-			typeParam := info.TypeParam{
+			typeParam := &info.TypeParam{
 				Name:       name.Name,
 				Constraint: exprToString(param.Type, importMap),
 			}
@@ -212,8 +212,8 @@ func isExportedType(expr ast.Expr) bool {
 	}
 }
 
-// getImportPathFromFilePath attempts to determine a package import path from file path
-func getImportPathFromFilePath(filePath string) string {
+// getImportPath attempts to determine a package import path from file path
+func getImportPath(filePath string) string {
 	// This is a heuristic and might not work for all project layouts
 	// Try to extract import path by looking for "src" or "go/src" in the path
 	srcPattern := regexp.MustCompile(`(?:^|/)(?:go/)?src/(.+)$`)

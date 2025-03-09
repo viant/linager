@@ -3,6 +3,7 @@ package golang
 import (
 	"fmt"
 	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/repository"
 	"go/ast"
 	"go/parser"
 	"os"
@@ -21,7 +22,7 @@ func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
 
 	// Create the Package to hold all discovered files and types
 	pkg := &info.Package{
-		ImportPath: getImportPathFromFilePath(absPath),
+		ImportPath: getImportPath(absPath),
 	}
 
 	// Process the single package directory
@@ -35,7 +36,7 @@ func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
 		pkg.Name = pkgFiles[0].Package
 	}
 	pkg.FileSet = pkgFiles
-	pkg.Asset = assets
+	pkg.Assets = assets
 
 	if len(pkg.FileSet) == 0 {
 		return nil, fmt.Errorf("no Go files found in package: %s", packagePath)
@@ -64,8 +65,12 @@ func (i *Inspector) InspectPackages(rootPath string) ([]*info.Package, error) {
 			return nil
 		}
 
+		var exclusion []string
+		if i.config.SkipTests {
+			exclusion = []string{"_test.go"}
+		}
 		// Check if directory has Go files
-		hasGoFiles, err := hasGoFilesInDir(aPath, i.config.SkipTests)
+		hasGoFiles, err := repository.HasFileWithSuffixes(aPath, []string{".go"}, exclusion)
 		if err != nil {
 			return err
 		}
@@ -122,7 +127,7 @@ func (i *Inspector) inspectSinglePackage(packageDir string) ([]*info.File, []*in
 
 	// Process non-Go files as assets if AllFilesInFolder is enabled
 	if i.config.AllFilesInFolder {
-		assets, err = i.readAssetsRecursively(packageDir, true)
+		assets, err = repository.ReadAssetsRecursively(packageDir, true, getImportPath, "go")
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to read assets: %w", err)
 		}
@@ -191,7 +196,7 @@ func (i *Inspector) readAssetsRecursively(packageDir string, isRoot bool) ([]*in
 
 		asset := &info.Asset{
 			Path:       filePath,
-			ImportPath: getImportPathFromFilePath(packageDir),
+			ImportPath: getImportPath(packageDir),
 			Content:    content,
 		}
 		assets = append(assets, asset)

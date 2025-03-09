@@ -30,7 +30,7 @@ func TestInspector_InspectSource(t *testing.T) {
 					Name:    "Person",
 					Kind:    reflect.Struct,
 					Comment: &info.LocationNode{Text: "Person represents a human"},
-					Fields: []info.Field{
+					Fields: []*info.Field{
 						{
 							Name:       "Name",
 							Type:       &info.Type{Name: "string"},
@@ -67,13 +67,13 @@ func TestInspector_InspectSource(t *testing.T) {
 					Name:    "List",
 					Kind:    reflect.Struct,
 					Comment: &info.LocationNode{Text: "List is a generic list implementation"},
-					TypeParams: []info.TypeParam{
+					TypeParams: []*info.TypeParam{
 						{
 							Name:       "T",
 							Constraint: "any",
 						},
 					},
-					Fields: []info.Field{
+					Fields: []*info.Field{
 						{
 							Name:       "Items",
 							Type:       &info.Type{Name: "[]T"},
@@ -112,7 +112,7 @@ func TestInspector_InspectSource(t *testing.T) {
 				{
 					Name: "Counter",
 					Kind: reflect.Struct,
-					Fields: []info.Field{
+					Fields: []*info.Field{
 						{
 							Name:       "value",
 							Type:       &info.Type{Name: "int"},
@@ -121,27 +121,27 @@ func TestInspector_InspectSource(t *testing.T) {
 					},
 					Package:    "test",
 					IsExported: true,
-					Methods: []info.Method{
+					Methods: []*info.Function{
 						{
 							Name:       "Increment",
 							Receiver:   "*Counter",
 							Comment:    &info.LocationNode{Text: "Increment adds the given amount to the counter"},
 							IsExported: true,
-							Parameters: []info.Parameter{
+							Parameters: []*info.Parameter{
 								{
 									Name: "amount",
 									Type: &info.Type{Name: "int"},
 								},
 							},
-							Results: []info.Parameter{},
+							Results: []*info.Parameter{},
 						},
 						{
 							Name:       "Value",
 							Receiver:   "Counter",
 							Comment:    &info.LocationNode{Text: "Value returns the current counter value"},
 							IsExported: true,
-							Parameters: []info.Parameter{},
-							Results: []info.Parameter{
+							Parameters: []*info.Parameter{},
+							Results: []*info.Parameter{
 								{
 									Type: &info.Type{Name: "int"},
 								},
@@ -187,7 +187,7 @@ func TestInspector_InspectSource(t *testing.T) {
 					Name:    "MyReader",
 					Kind:    reflect.Struct,
 					Package: "test",
-					Fields: []info.Field{
+					Fields: []*info.Field{
 						{
 							Type:       &info.Type{Name: "io.Reader"},
 							IsEmbedded: true,
@@ -310,15 +310,15 @@ func TestInspector_InspectSource(t *testing.T) {
 
 						gotMethod := got.Methods[j]
 						if gotMethod.Name != wantMethod.Name {
-							t.Errorf("Type[%d].Method[%d].Name = %s, want %s", i, j, gotMethod.Name, wantMethod.Name)
+							t.Errorf("Type[%d].Functions[%d].Name = %s, want %s", i, j, gotMethod.Name, wantMethod.Name)
 						}
 
 						if gotMethod.Receiver != wantMethod.Receiver {
-							t.Errorf("Type[%d].Method[%d].Receiver = %s, want %s", i, j, gotMethod.Receiver, wantMethod.Receiver)
+							t.Errorf("Type[%d].Functions[%d].Receiver = %s, want %s", i, j, gotMethod.Receiver, wantMethod.Receiver)
 						}
 
 						if gotMethod.IsExported != wantMethod.IsExported {
-							t.Errorf("Type[%d].Method[%d].IsExported = %v, want %v", i, j, gotMethod.IsExported, wantMethod.IsExported)
+							t.Errorf("Type[%d].Functions[%d].IsExported = %v, want %v", i, j, gotMethod.IsExported, wantMethod.IsExported)
 						}
 					}
 				}

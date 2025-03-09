@@ -45,7 +45,6 @@ func (i *Inspector) inspectGenDecl(decl *ast.GenDecl, importMap map[string]strin
 			types = append(types, typeInfo)
 		}
 	}
-
 	return types, nil
 }
 
@@ -137,8 +136,15 @@ func extractFieldDocumentation(field *ast.Field) string {
 	return ""
 }
 
-// processMethod converts an ast.FuncDecl to our Method
-func (i *Inspector) processMethod(funcDecl *ast.FuncDecl, importMap map[string]string) info.Method {
+// processMethod converts an ast.FuncDecl to our Functions
+func (i *Inspector) processMethod(funcDecl *ast.FuncDecl, importMap map[string]string) *info.Function {
+	recvField := funcDecl.Recv.List[0]
+	recvTypeStr := exprToString(recvField.Type, importMap)
+	method := i.processFunction(funcDecl, importMap, recvTypeStr)
+	return method
+}
+
+func (i *Inspector) processFunction(funcDecl *ast.FuncDecl, importMap map[string]string, recvTypeStr string) *info.Function {
 	comment := ""
 	var commentLocation info.Location
 	if funcDecl.Doc != nil {
@@ -149,16 +155,13 @@ func (i *Inspector) processMethod(funcDecl *ast.FuncDecl, importMap map[string]s
 		}
 	}
 
-	recvField := funcDecl.Recv.List[0]
-	recvTypeStr := exprToString(recvField.Type, importMap)
-
 	// Create method location information
 	methodLocation := &info.Location{
 		Start: i.fset.Position(funcDecl.Pos()).Offset,
 		End:   i.fset.Position(funcDecl.End()).Offset,
 	}
 
-	method := info.Method{
+	method := &info.Function{
 		Name:       funcDecl.Name.Name,
 		Comment:    &info.LocationNode{Text: strings.TrimSpace(comment), Location: commentLocation},
 		Receiver:   recvTypeStr,
@@ -176,12 +179,12 @@ func (i *Inspector) processMethod(funcDecl *ast.FuncDecl, importMap map[string]s
 			}
 
 			if len(p.Names) == 0 {
-				method.Parameters = append(method.Parameters, info.Parameter{
+				method.Parameters = append(method.Parameters, &info.Parameter{
 					Type: paramType,
 				})
 			} else {
 				for _, name := range p.Names {
-					method.Parameters = append(method.Parameters, info.Parameter{
+					method.Parameters = append(method.Parameters, &info.Parameter{
 						Name: name.Name,
 						Type: paramType,
 					})
@@ -198,12 +201,12 @@ func (i *Inspector) processMethod(funcDecl *ast.FuncDecl, importMap map[string]s
 			}
 
 			if len(r.Names) == 0 {
-				method.Results = append(method.Results, info.Parameter{
+				method.Results = append(method.Results, &info.Parameter{
 					Type: resultType,
 				})
 			} else {
 				for _, name := range r.Names {
-					method.Results = append(method.Results, info.Parameter{
+					method.Results = append(method.Results, &info.Parameter{
 						Name: name.Name,
 						Type: resultType,
 					})
@@ -252,6 +255,5 @@ func (i *Inspector) processMethod(funcDecl *ast.FuncDecl, importMap map[string]s
 			}
 		}
 	}
-
 	return method
 }

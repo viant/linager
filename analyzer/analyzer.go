@@ -676,7 +676,7 @@ func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) (*info.DataPoint
 		return dp, tp
 
 	case *ast.CallExpr:
-		// Function call, handle function and arguments
+		// Functions call, handle function and arguments
 		funcDP, _ := v.handleExpression(e.Fun, false)
 
 		// Track call graph information
@@ -878,7 +878,7 @@ func (v *visitor) getDataPointsFromExpr(expr ast.Expr) []string {
 		results = append(results, v.getDataPointsFromExpr(e.X)...)
 		results = append(results, v.getDataPointsFromExpr(e.Y)...)
 	case *ast.CallExpr:
-		// Function calls
+		// Functions calls
 		funcName := v.exprToString(e.Fun)
 		results = append(results, funcName)
 

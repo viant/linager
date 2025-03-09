@@ -5,6 +5,7 @@ import (
 	"github.com/viant/linager/inspector/info"
 	"go/ast"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"os"
 	"path/filepath"
@@ -60,6 +61,121 @@ func (i *Inspector) InspectFile(filename string) (*info.File, error) {
 	return i.processFile(file, filename)
 }
 
+// AddFunction adds a function with the given name and body to an AST file if it doesn't exist already
+// If the function doesn't have a receiver (like init()), set receiverType to an empty string
+func (i *Inspector) AddFunction(file *ast.File, name, receiverType, receiverName, body string, params, results []*ast.Field) (*ast.FuncDecl, bool) {
+	// Check if function already exists
+	for _, decl := range file.Decls {
+		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
+			// If checking for non-receiver function (like init())
+			if receiverType == "" && funcDecl.Recv == nil && funcDecl.Name.Name == name {
+				return funcDecl, false // Functions already exists
+			}
+
+			// If checking for method with receiver
+			if receiverType != "" && funcDecl.Recv != nil && len(funcDecl.Recv.List) > 0 {
+				recvType := exprToString(funcDecl.Recv.List[0].Type, nil)
+				baseTypeName := extractBaseTypeName(recvType)
+
+				if baseTypeName == extractBaseTypeName(receiverType) && funcDecl.Name.Name == name {
+					return funcDecl, false // Method already exists for this receiver
+				}
+			}
+		}
+	}
+
+	// Create a new function declaration
+	newFunc := &ast.FuncDecl{
+		Name: &ast.Ident{Name: name},
+		Type: &ast.FuncType{
+			Params:  &ast.FieldList{List: params},
+			Results: &ast.FieldList{List: results},
+		},
+	}
+
+	// Add receiver if specified
+	if receiverType != "" {
+		var recvName *ast.Ident
+		if receiverName != "" {
+			recvName = &ast.Ident{Name: receiverName}
+		}
+
+		// Parse the receiver type
+		var recvTypeExpr ast.Expr
+		if strings.HasPrefix(receiverType, "*") {
+			// Pointer receiver
+			baseType := &ast.Ident{Name: strings.TrimPrefix(receiverType, "*")}
+			recvTypeExpr = &ast.StarExpr{X: baseType}
+		} else {
+			// Non-pointer receiver
+			recvTypeExpr = &ast.Ident{Name: receiverType}
+		}
+
+		recvField := &ast.Field{
+			Names: []*ast.Ident{recvName},
+			Type:  recvTypeExpr,
+		}
+
+		newFunc.Recv = &ast.FieldList{
+			List: []*ast.Field{recvField},
+		}
+	}
+
+	// Parse the body if provided
+	if body != "" {
+		// We need to parse the body as a block statement
+		bodyWithBraces := "{\n" + body + "\n}"
+		bodyFile, err := parser.ParseFile(i.fset, "", "package p; func _() "+bodyWithBraces, parser.ParseComments)
+		if err == nil && len(bodyFile.Decls) > 0 {
+			if fd, ok := bodyFile.Decls[0].(*ast.FuncDecl); ok {
+				newFunc.Body = fd.Body
+			}
+		}
+	} else {
+		// Empty body
+		newFunc.Body = &ast.BlockStmt{
+			List: []ast.Stmt{},
+		}
+	}
+
+	// Add the function declaration to the file
+	file.Decls = append(file.Decls, newFunc)
+
+	// Return the new function and true to indicate it was added
+	return newFunc, true
+}
+
+// GetFileWithFunction returns the content of a file with a new function added
+func (i *Inspector) GetFileWithFunction(filename, funcName, receiverType, receiverName, body string) ([]byte, error) {
+	// Read and parse the file
+	src, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", filename, err)
+	}
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse file %s: %w", filename, err)
+	}
+
+	// Add the function
+	_, added := i.AddFunction(file, funcName, receiverType, receiverName, body, nil, nil)
+	if !added {
+		// Functions already exists, just return original source
+		return src, nil
+	}
+
+	// Print the modified AST back to source code
+	var buf strings.Builder
+	err = printer.Fprint(&buf, fset, file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate code: %w", err)
+	}
+
+	return []byte(buf.String()), nil
+}
+
 // processFile extracts type information from an AST file
 func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, error) {
 	// Reset and rebuild import map for this file
@@ -85,7 +201,7 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 	}
 
 	// Extract the import path from the file path
-	infoFile.ImportPath = getImportPathFromFilePath(filename)
+	infoFile.ImportPath = getImportPath(filename)
 
 	// Add constants and variables to the file
 	constants, err := i.InspectConstants(file, importMap)
@@ -113,6 +229,7 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 	// First pass: collect all type specs and their associated comments
 	for _, decl := range file.Decls {
 		genDecl, ok := decl.(*ast.GenDecl)
+
 		if !ok || genDecl.Tok != token.TYPE {
 			continue
 		}
@@ -229,7 +346,12 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 	// Third pass: collect methods and create types for receivers if they don't exist
 	for _, decl := range file.Decls {
 		funcDecl, ok := decl.(*ast.FuncDecl)
-		if !ok || funcDecl.Recv == nil || len(funcDecl.Recv.List) == 0 {
+		if !ok {
+			continue
+		}
+		if funcDecl.Recv == nil || len(funcDecl.Recv.List) == 0 {
+			function := i.processFunction(funcDecl, importMap, "")
+			infoFile.Functions = append(infoFile.Functions, function)
 			continue
 		}
 
@@ -261,7 +383,7 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 				targetType = &info.Type{
 					Name:       baseTypeName,
 					IsExported: true, // Assume exported since we have an exported method on it
-					Methods:    []info.Method{},
+					Methods:    []*info.Function{},
 					// We don't know the kind yet, but we can assume it's a struct most of the time
 					Kind: reflect.Struct,
 				}

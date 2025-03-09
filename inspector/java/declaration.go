@@ -34,11 +34,40 @@ func parseImportDeclarations(node *sitter.Node, source []byte) map[string]string
 		return imports
 	}
 
+	// Handle static imports
+	if importNode.Type() == "static_import" {
+		// Extract the fully qualified name
+		scopeNode := importNode.ChildByFieldName("scope")
+		if scopeNode != nil {
+			packagePath := scopeNode.Content(source)
+			// Extract the class name and static member
+			lastDotIndex := strings.LastIndex(packagePath, ".")
+			if lastDotIndex != -1 {
+				className := packagePath[lastDotIndex+1:]
+				packagePrefix := packagePath[:lastDotIndex]
+				imports[className] = packagePrefix
+			}
+		}
+		return imports
+	}
+
+	// Handle regular import
 	scopeNode := importNode.ChildByFieldName("scope")
 	nameNode := importNode.ChildByFieldName("name")
 
 	if scopeNode != nil && nameNode != nil {
-		imports[nameNode.Content(source)] = scopeNode.Content(source)
+		packagePath := scopeNode.Content(source)
+		className := nameNode.Content(source)
+		imports[className] = packagePath
+	} else if scopeNode != nil {
+		// Handle wildcard imports (import java.util.*)
+		packagePath := scopeNode.Content(source)
+		// For wildcard imports, we use the package name as the key
+		lastDot := strings.LastIndex(packagePath, ".")
+		if lastDot != -1 {
+			packageName := packagePath[lastDot+1:]
+			imports[packageName+".*"] = packagePath
+		}
 	}
 
 	return imports
@@ -62,8 +91,8 @@ func parseClassDeclaration(node *sitter.Node, source []byte, importMap map[strin
 		Name:       className,
 		Kind:       reflect.Struct,
 		IsExported: isNodePublic(node, source),
-		Fields:     []info.Field{},
-		Methods:    []info.Method{},
+		Fields:     []*info.Field{},
+		Methods:    []*info.Function{},
 		Location: &info.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
@@ -72,6 +101,37 @@ func parseClassDeclaration(node *sitter.Node, source []byte, importMap map[strin
 
 	// Extract documentation and annotation using the helper function
 	classType.Comment, classType.Annotation = extractDocumentation(node, source)
+
+	// Extract type parameters (generics)
+	classType.TypeParams = extractTypeParameters(node, source)
+
+	// Extract superclass and interfaces
+	superclassNode := node.ChildByFieldName("superclass")
+	if superclassNode != nil {
+		superclassName := superclassNode.Content(source)
+		classType.Extends = append(classType.Extends, superclassName)
+
+		// Try to resolve the package path for the superclass
+		if packagePath, ok := importMap[extractSimpleTypeName(superclassName)]; ok {
+			classType.Extends[0] = packagePath + "." + extractSimpleTypeName(superclassName)
+		}
+	}
+
+	// Extract implemented interfaces
+	interfacesNode := node.ChildByFieldName("interfaces")
+	if interfacesNode != nil {
+		for i := uint32(0); i < interfacesNode.NamedChildCount(); i++ {
+			interfaceNode := interfacesNode.NamedChild(int(i))
+			interfaceName := interfaceNode.Content(source)
+
+			// Try to fully qualify the interface name
+			if packagePath, ok := importMap[extractSimpleTypeName(interfaceName)]; ok {
+				interfaceName = packagePath + "." + extractSimpleTypeName(interfaceName)
+			}
+
+			classType.Implements = append(classType.Implements, interfaceName)
+		}
+	}
 
 	// Extract class body
 	bodyNode := node.ChildByFieldName("body")
@@ -84,18 +144,18 @@ func parseClassDeclaration(node *sitter.Node, source []byte, importMap map[strin
 			case "field_declaration":
 				field := parseFieldDeclaration(child, source, importMap)
 				if field != nil {
-					classType.Fields = append(classType.Fields, *field)
+					classType.Fields = append(classType.Fields, field)
 				}
 
 			case "method_declaration":
 				method := parseMethodDeclaration(child, source, importMap)
 				if method != nil {
-					classType.Methods = append(classType.Methods, *method)
+					classType.Methods = append(classType.Methods, method)
 				}
 			case "constructor_declaration":
 				constructor := parseConstructorDeclaration(child, source, className, importMap)
 				if constructor != nil {
-					classType.Methods = append(classType.Methods, *constructor)
+					classType.Methods = append(classType.Methods, constructor)
 				}
 			}
 		}
@@ -122,7 +182,7 @@ func parseInterfaceDeclaration(node *sitter.Node, source []byte, importMap map[s
 		Name:       interfaceName,
 		Kind:       reflect.Interface,
 		IsExported: isNodePublic(node, source),
-		Methods:    []info.Method{},
+		Methods:    []*info.Function{},
 		Location: &info.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
@@ -142,13 +202,13 @@ func parseInterfaceDeclaration(node *sitter.Node, source []byte, importMap map[s
 			extendedNode := extendsNode.NamedChild(int(i))
 			extendedName := extendedNode.Content(source)
 
+			// Try to fully qualify the extended interface name
+			if packagePath, ok := importMap[extractSimpleTypeName(extendedName)]; ok {
+				extendedName = packagePath + "." + extractSimpleTypeName(extendedName)
+			}
+
 			// Add to extends list
 			interfaceType.Extends = append(interfaceType.Extends, extendedName)
-
-			// Try to resolve the package path for the extended interface
-			if packagePath, ok := importMap[extractSimpleTypeName(extendedName)]; ok {
-				interfaceType.PackagePath = packagePath
-			}
 		}
 	}
 
@@ -162,7 +222,7 @@ func parseInterfaceDeclaration(node *sitter.Node, source []byte, importMap map[s
 			if child.Type() == "method_declaration" {
 				method := parseMethodDeclaration(child, source, importMap)
 				if method != nil {
-					interfaceType.Methods = append(interfaceType.Methods, *method)
+					interfaceType.Methods = append(interfaceType.Methods, method)
 				}
 			}
 		}
@@ -289,7 +349,7 @@ func parseFieldDeclaration(node *sitter.Node, source []byte, importMap map[strin
 		Comment:    comment.Text,
 		Annotation: annotation.Text,
 		IsExported: isNodePublic(node, source),
-
+		IsStatic:   isStatic,
 		IsConstant: isFinal && isStatic,
 		Location: &info.Location{
 			Start: int(node.StartByte()),
@@ -301,7 +361,7 @@ func parseFieldDeclaration(node *sitter.Node, source []byte, importMap map[strin
 }
 
 // parseMethodDeclaration extracts method information from a class
-func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *info.Method {
+func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *info.Function {
 	if node.Type() != "method_declaration" {
 		return nil
 	}
@@ -326,14 +386,28 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 	// Extract type parameters (generics) for the method
 	typeParams := extractTypeParameters(node, source)
 
+	// Check if method is static
+	isStatic := false
+	if node.NamedChildCount() > 0 && node.NamedChild(0).Type() == "modifiers" {
+		modifiersNode := node.NamedChild(0)
+		for i := uint32(0); i < modifiersNode.NamedChildCount(); i++ {
+			modifier := modifiersNode.NamedChild(int(i))
+			if modifier.Type() == "static" {
+				isStatic = true
+				break
+			}
+		}
+	}
+
 	// Create method with location information
-	method := &info.Method{
+	method := &info.Function{
 		Name:       methodName,
 		Comment:    comment,
 		Annotation: annotation,
 		IsExported: isNodePublic(node, source),
-		Parameters: []info.Parameter{},
+		Parameters: []*info.Parameter{},
 		TypeParams: typeParams,
+		IsStatic:   isStatic,
 		Location: &info.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
@@ -342,7 +416,7 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 	}
 
 	if returnType != nil {
-		method.Results = []info.Parameter{
+		method.Results = []*info.Parameter{
 			{
 				Type: returnType,
 			},
@@ -364,7 +438,7 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 					paramType := parseJavaType(paramTypeNode, source, importMap)
 					paramName := paramNameNode.Content(source)
 
-					method.Parameters = append(method.Parameters, info.Parameter{
+					method.Parameters = append(method.Parameters, &info.Parameter{
 						Name: paramName,
 						Type: paramType,
 					})
@@ -390,7 +464,7 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 								paramType.Kind = reflect.Slice
 							}
 
-							method.Parameters = append(method.Parameters, info.Parameter{
+							method.Parameters = append(method.Parameters, &info.Parameter{
 								Name: paramName,
 								Type: paramType,
 							})
@@ -417,7 +491,7 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 }
 
 // parseConstructorDeclaration extracts constructor information from a class
-func parseConstructorDeclaration(node *sitter.Node, source []byte, className string, importMap map[string]string) *info.Method {
+func parseConstructorDeclaration(node *sitter.Node, source []byte, className string, importMap map[string]string) *info.Function {
 	if node.Type() != "constructor_declaration" {
 		return nil
 	}
@@ -438,13 +512,14 @@ func parseConstructorDeclaration(node *sitter.Node, source []byte, className str
 	typeParams := extractTypeParameters(node, source)
 
 	// Create constructor method with location information
-	constructor := &info.Method{
-		Name:       className,
-		Comment:    comment,
-		Annotation: annotation,
-		IsExported: isNodePublic(node, source),
-		Parameters: []info.Parameter{},
-		TypeParams: typeParams,
+	constructor := &info.Function{
+		Name:          className,
+		Comment:       comment,
+		Annotation:    annotation,
+		IsExported:    isNodePublic(node, source),
+		Parameters:    []*info.Parameter{},
+		TypeParams:    typeParams,
+		IsConstructor: true,
 		Location: &info.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
@@ -453,7 +528,7 @@ func parseConstructorDeclaration(node *sitter.Node, source []byte, className str
 	}
 
 	// Constructors return the class type
-	constructor.Results = []info.Parameter{
+	constructor.Results = []*info.Parameter{
 		{
 			Type: &info.Type{
 				Name: className,
@@ -475,7 +550,7 @@ func parseConstructorDeclaration(node *sitter.Node, source []byte, className str
 					paramType := parseJavaType(paramTypeNode, source, importMap)
 					paramName := paramNameNode.Content(source)
 
-					constructor.Parameters = append(constructor.Parameters, info.Parameter{
+					constructor.Parameters = append(constructor.Parameters, &info.Parameter{
 						Name: paramName,
 						Type: paramType,
 					})
@@ -509,7 +584,12 @@ func formatMethodSignature(name string, node *sitter.Node, source []byte, import
 		if typeNode != nil {
 			returnType := parseJavaType(typeNode, source, importMap)
 			if returnType != nil {
-				signature.WriteString(returnType.Name)
+				// Try to use fully qualified name for return type
+				typeName := returnType.Name
+				if returnType.PackagePath != "" && !strings.Contains(typeName, ".") {
+					typeName = returnType.PackagePath + "." + typeName
+				}
+				signature.WriteString(typeName)
 				signature.WriteString(" ")
 			}
 		}
@@ -529,7 +609,20 @@ func formatMethodSignature(name string, node *sitter.Node, source []byte, import
 			signature.WriteString(param.Name)
 			if param.Constraint != "any" {
 				signature.WriteString(" extends ")
-				signature.WriteString(param.Constraint)
+				// Try to fully qualify constraint types
+				constraintParts := strings.Split(param.Constraint, "&")
+				for j, part := range constraintParts {
+					part = strings.TrimSpace(part)
+					if j > 0 {
+						signature.WriteString(" & ")
+					}
+					// Try to fully qualify the constraint type
+					if packagePath, ok := importMap[extractSimpleTypeName(part)]; ok {
+						signature.WriteString(packagePath + "." + extractSimpleTypeName(part))
+					} else {
+						signature.WriteString(part)
+					}
+				}
 			}
 		}
 		signature.WriteString(">")
@@ -552,7 +645,36 @@ func formatMethodSignature(name string, node *sitter.Node, source []byte, import
 					paramName := paramNameNode.Content(source)
 
 					if paramType != nil {
-						params = append(params, paramType.Name+" "+paramName)
+						// Try to use fully qualified name for parameter type
+						typeName := paramType.Name
+						if paramType.PackagePath != "" && !strings.Contains(typeName, ".") {
+							typeName = paramType.PackagePath + "." + typeName
+						}
+						params = append(params, typeName+" "+paramName)
+					}
+				}
+			} else if paramNode.Type() == "spread_parameter" {
+				// Handle variadic parameters
+				if paramNode.NamedChildCount() >= 2 {
+					paramTypeNode := paramNode.NamedChild(0)
+					paramDeclNode := paramNode.NamedChild(1)
+
+					if paramTypeNode != nil && paramDeclNode != nil {
+						paramNameNode := paramDeclNode.ChildByFieldName("name")
+
+						if paramNameNode != nil {
+							paramType := parseJavaType(paramTypeNode, source, importMap)
+							paramName := paramNameNode.Content(source)
+
+							if paramType != nil {
+								// Try to use fully qualified name
+								typeName := paramType.Name
+								if paramType.PackagePath != "" && !strings.Contains(typeName, ".") {
+									typeName = paramType.PackagePath + "." + typeName
+								}
+								params = append(params, typeName+"... "+paramName)
+							}
+						}
 					}
 				}
 			}
@@ -568,7 +690,13 @@ func formatMethodSignature(name string, node *sitter.Node, source []byte, import
 		var exceptions []string
 		for i := uint32(0); i < throwsNode.NamedChildCount(); i++ {
 			exceptionNode := throwsNode.NamedChild(int(i))
-			exceptions = append(exceptions, exceptionNode.Content(source))
+			exceptionName := exceptionNode.Content(source)
+
+			// Try to fully qualify exception names
+			if packagePath, ok := importMap[extractSimpleTypeName(exceptionName)]; ok {
+				exceptionName = packagePath + "." + extractSimpleTypeName(exceptionName)
+			}
+			exceptions = append(exceptions, exceptionName)
 		}
 		signature.WriteString(strings.Join(exceptions, ", "))
 	}
@@ -587,7 +715,7 @@ func parseAnnotationDeclaration(node *sitter.Node, source []byte) string {
 
 // isNodePublic checks if a node has the 'public' modifier
 func isNodePublic(node *sitter.Node, source []byte) bool {
-	if node.NamedChild(0).Type() == "modifiers" {
+	if node.NamedChildCount() > 0 && node.NamedChild(0).Type() == "modifiers" {
 		modifiersNode := node.NamedChild(0)
 		for i := uint32(0); i < modifiersNode.NamedChildCount(); i++ {
 			modifier := modifiersNode.NamedChild(int(i))
@@ -597,155 +725,4 @@ func isNodePublic(node *sitter.Node, source []byte) bool {
 		}
 	}
 	return false
-}
-
-// parseJavaType converts a Java type node to an info.Type
-func parseJavaType(node *sitter.Node, source []byte, importMap map[string]string) *info.Type {
-	// Create a basic type with location information
-	typeInfo := &info.Type{
-		Name: node.Content(source),
-		Location: &info.Location{
-			Start: int(node.StartByte()),
-			End:   int(node.EndByte()),
-		},
-	}
-
-	switch node.Type() {
-	case "integral_type":
-		if node.NamedChildCount() == 0 {
-			return typeInfo
-		}
-		switch node.NamedChild(0).Type() {
-		case "int":
-			typeInfo.Name = "int32"
-			typeInfo.Kind = reflect.Int32
-		case "short":
-			typeInfo.Name = "int16"
-			typeInfo.Kind = reflect.Int16
-		case "long":
-			typeInfo.Name = "int64"
-			typeInfo.Kind = reflect.Int64
-		case "char":
-			typeInfo.Name = "rune"
-			typeInfo.Kind = reflect.Int32
-		case "byte":
-			typeInfo.Name = "byte"
-			typeInfo.Kind = reflect.Uint8
-		}
-
-	case "floating_point_type":
-		if node.NamedChildCount() == 0 {
-			return typeInfo
-		}
-		switch node.NamedChild(0).Type() {
-		case "float":
-			typeInfo.Name = "float32"
-			typeInfo.Kind = reflect.Float32
-		case "double":
-			typeInfo.Name = "float64"
-			typeInfo.Kind = reflect.Float64
-		}
-
-	case "boolean_type":
-		typeInfo.Name = "bool"
-		typeInfo.Kind = reflect.Bool
-
-	case "void_type":
-		typeInfo.Name = "void"
-
-	case "array_type":
-		elemType := parseJavaType(node.NamedChild(0), source, importMap)
-		if elemType != nil {
-			typeInfo.Name = "[]" + elemType.Name
-			typeInfo.Kind = reflect.Array
-			typeInfo.ComponentType = elemType.Name
-
-			// Transfer package information from element type
-			typeInfo.PackagePath = elemType.PackagePath
-		}
-
-	case "type_identifier":
-		typeName := node.Content(source)
-		if typeName == "String" {
-			typeInfo.Name = "string"
-			typeInfo.Kind = reflect.String
-			typeInfo.PackagePath = "java.lang"
-		} else {
-			typeInfo.Kind = reflect.Ptr
-
-			// Look for import information to add full package path
-			if packagePath, ok := importMap[typeName]; ok {
-				typeInfo.PackagePath = packagePath
-				// Create fully qualified name if we have package info
-				typeInfo.Name = packagePath + "." + typeName
-			}
-		}
-		typeInfo.PackagePath = importMap[typeName]
-
-	case "scoped_type_identifier":
-		typeInfo.Kind = reflect.Interface
-
-		// Extract package from scoped identifier
-		scopedName := node.Content(source)
-		if lastDotIndex := strings.LastIndex(scopedName, "."); lastDotIndex != -1 {
-			packagePath := scopedName[:lastDotIndex]
-			typeInfo.PackagePath = packagePath
-		}
-
-	case "generic_type":
-		if node.NamedChildCount() > 0 {
-			baseTypeNode := node.NamedChild(0)
-			baseTypeName := baseTypeNode.Content(source)
-			typeInfo.Kind = reflect.Ptr
-
-			// Try to find package info for the base type
-			if packagePath, ok := importMap[baseTypeName]; ok {
-				typeInfo.PackagePath = packagePath
-				// Update name with full package path
-				typeInfo.Name = packagePath + "." + baseTypeName
-			} else {
-				typeInfo.Name = baseTypeName
-			}
-
-			var typeParams []info.TypeParam
-
-			// Process type parameters
-			typeArgsNode := node.ChildByFieldName("type_arguments")
-			if typeArgsNode != nil {
-				var paramTypes []string
-				for i := uint32(0); i < typeArgsNode.NamedChildCount(); i++ {
-					paramNode := typeArgsNode.NamedChild(int(i))
-					paramType := parseJavaType(paramNode, source, importMap)
-					if paramType != nil {
-						paramName := paramType.Name
-						typeParams = append(typeParams, info.TypeParam{
-							Name:       paramName,
-							Constraint: "any",
-						})
-						paramTypes = append(paramTypes, paramName)
-					}
-				}
-
-				// Add type parameters to name
-				if len(paramTypes) > 0 {
-					typeInfo.Name += "<" + strings.Join(paramTypes, ", ") + ">"
-				}
-			}
-
-			typeInfo.TypeParams = typeParams
-			typeInfo.PackagePath = importMap[baseTypeName]
-		}
-	}
-
-	return typeInfo
-}
-
-// extractSimpleTypeName extracts the simple name from a possibly qualified name
-// e.g., "java.util.List" -> "List"
-func extractSimpleTypeName(qualifiedName string) string {
-	lastDotIndex := strings.LastIndex(qualifiedName, ".")
-	if lastDotIndex != -1 {
-		return qualifiedName[lastDotIndex+1:]
-	}
-	return qualifiedName
 }

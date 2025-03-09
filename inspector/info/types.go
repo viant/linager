@@ -2,6 +2,7 @@ package info
 
 import (
 	"reflect"
+	"strings"
 )
 
 // Type represents a parsed Go type with rich metadata
@@ -17,17 +18,44 @@ type Type struct {
 
 	Annotation *LocationNode // Annotations for the type
 	IsExported bool          // Whether the type is exported
-	Fields     []Field       // Struct fields (if applicable)
-	Methods    []Method      // Type methods
-	TypeParams []TypeParam   // Generic type parameters
+	Fields     []*Field      // Struct fields (if applicable)
+	Methods    []*Function   // Type methods
+	TypeParams []*TypeParam  // Generic type parameters
 	Implements []string      // Interfaces this type implements
 	IsPointer  bool          // Whether the type is a pointer
 	Location   *Location     // Location of the type in the source code
 	Extends    []string
+
+	fieldMap  map[string]int // Map of fields for quick lookup
+	methodMap map[string]int // Map of methods for quick lookup
+
+}
+
+// GetField retrieves a constant by name from the file
+func (f *Type) GetField(name string) *Field {
+	if f.Fields == nil {
+		return nil
+	}
+	if idx, ok := f.fieldMap[name]; ok && idx < len(f.Fields) {
+		return f.Fields[idx]
+	}
+	return nil
+}
+
+// GetMethod retrieves a constant by name from the file
+func (f *Type) GetMethod(name string) *Function {
+	if f.Methods == nil {
+		return nil
+	}
+	if idx, ok := f.methodMap[name]; ok && idx < len(f.Methods) {
+		return f.Methods[idx]
+	}
+	return nil
 }
 
 // Content returns the content of the method including its receiver, parameters, and results
 func (m *Type) Content(source []byte) string {
+	builder := &strings.Builder{}
 	if m.Location == nil {
 		return ""
 	}
@@ -38,7 +66,16 @@ func (m *Type) Content(source []byte) string {
 	if m.Annotation != nil && m.Annotation.Location.Start > 0 {
 		start = min(start, m.Annotation.Location.Start)
 	}
-	return string(source[start:m.Location.End])
+	builder.WriteString(string(source[start:m.Location.End]))
+
+	for _, field := range m.Fields {
+		if field.Location != nil {
+			builder.WriteString("\n")
+			builder.WriteString(field.Content(source))
+		}
+	}
+	builder.WriteString("\n}\n")
+	return builder.String()
 }
 
 type LocationNode struct {
@@ -66,25 +103,37 @@ type Field struct {
 	IsConstant bool
 }
 
-// Method represents a type method
-type Method struct {
+func (f *Field) Content(source []byte) string {
+	if f.Location == nil {
+		return ""
+	}
+	start := f.Location.Start
+	if f.Comment != "" {
+		start = min(start, f.Location.Start)
+	}
+	return string(source[start:f.Location.End])
+}
+
+// Function represents a type method
+type Function struct {
 	Name          string
 	Comment       *LocationNode
 	Annotation    *LocationNode
 	Receiver      string
-	TypeParams    []TypeParam
-	Parameters    []Parameter
-	Results       []Parameter
+	TypeParams    []*TypeParam
+	Parameters    []*Parameter
+	Results       []*Parameter
 	Body          *LocationNode
 	IsExported    bool
 	Location      *Location // Location of the method in the source code
 	IsStatic      bool      // Whether the method is static (class method)
 	IsConstructor bool
 	Signature     string
+	Hash          int32
 }
 
 // Content returns the content of the method including its receiver, parameters, and results
-func (m *Method) Content(source []byte) string {
+func (m *Function) Content(source []byte) string {
 	if m.Location == nil {
 		return ""
 	}

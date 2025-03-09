@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	path "path"
 	"path/filepath"
 	"strings"
 
@@ -110,53 +111,54 @@ func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
+	_, pkgName := path.Split(absPath)
 	// Create a new Package to store all discovered types
 	pkg := &info.Package{
 		FileSet: []*info.File{},
+		Name:    pkgName,
 	}
 
-	// Walk the directory to find Java files
-	err = filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
+	entries, err := os.ReadDir(absPath)
+
+	for _, entry := range entries {
+
+		filePath := path.Join(packagePath, entry.Name())
+		fileInfo, err := entry.Info()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// Skip directories
-		if info.IsDir() {
-			// Skip subdirectories if not recursive
-			if path != absPath && !i.config.RecursivePackages {
-				return filepath.SkipDir
-			}
-			return nil
+		if fileInfo.IsDir() {
+			continue
 		}
 
 		// Process only .java files
-		if filepath.Ext(path) == ".java" {
-			// Skip test files unless configured to include them
-			if i.config.SkipTests && (filepath.Base(path) == "Test.java" ||
-				filepath.Base(path) == "Tests.java" ||
-				filepath.Base(path) == "IT.java" ||
-				filepath.Base(path) == "ITCase.java") {
-				return nil
-			}
-
-			file, err := i.InspectFile(path)
-			if err != nil {
-				return fmt.Errorf("error processing %s: %w", path, err)
-			}
-
-			// Add file to the package
-			if pkg.Name == "" && file.Package != "" {
-				pkg.Name = file.Package
-				pkg.ImportPath = file.ImportPath
-			}
-
-			// Add file to package
-			pkg.AddFile(file)
+		if filepath.Ext(filePath) != ".java" {
+			continue
+		}
+		// Skip test files unless configured to include them
+		if i.config.SkipTests && (filepath.Base(filePath) == "Test.java" ||
+			filepath.Base(filePath) == "Tests.java" ||
+			filepath.Base(filePath) == "IT.java" ||
+			filepath.Base(filePath) == "ITCase.java") {
+			continue
 		}
 
-		return nil
-	})
+		file, err := i.InspectFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("error processing %s: %w", filePath, err)
+		}
+
+		// Add file to the package
+		if file.ImportPath != "" {
+			pkg.ImportPath = file.ImportPath
+		}
+
+		// Add file to package
+		pkg.AddFile(file)
+
+	}
 
 	if err != nil {
 		return nil, fmt.Errorf("error walking package directory: %w", err)
@@ -171,7 +173,7 @@ func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
 
 // processJavaFile extracts package, types, constants, and variables from a Java file
 func (i *Inspector) processJavaFile(rootNode *sitter.Node, src []byte, filename string) (*info.File, error) {
-	aFile := &info.File{Name: filename}
+	aFile := &info.File{Path: filename}
 
 	// Find package declaration
 	var packageNode *sitter.Node
@@ -193,8 +195,7 @@ func (i *Inspector) processJavaFile(rootNode *sitter.Node, src []byte, filename 
 
 	// Process package declaration
 	if packageNode != nil {
-		aFile.Name = parsePackageDeclaration(packageNode, src)
-		aFile.ImportPath = aFile.Name // In Java, the package name is the import path
+		aFile.ImportPath = parsePackageDeclaration(packageNode, src) // In Java, the package name is the import path
 	}
 
 	// Process imports

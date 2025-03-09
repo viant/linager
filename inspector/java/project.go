@@ -1,4 +1,4 @@
-package golang
+package java
 
 import (
 	"github.com/viant/linager/inspector/info"
@@ -13,19 +13,19 @@ func (i *Inspector) InspectProject(location string) (*info.Project, error) {
 		project.Name = info.Name
 		project.Type = info.Type
 		project.RootPath = info.RootPath
+		if info.RootPath != "" {
+			location = info.RootPath
+		}
 	}
 	if info, err := detector.DetectRepository(location); err == nil {
 		project.RepositoryURL = info.Origin
-		if info.Root != "" {
-			location = info.Root
-		}
-	}
 
+	}
 	var err error
 	if project.Packages, err = i.InspectPackages(location); err != nil {
 		return nil, err
 	}
-	project.Init()
 
+	project.Init()
 	return project, nil
 }

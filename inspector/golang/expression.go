@@ -164,7 +164,7 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 		}, nil
 
 	case *ast.FuncType:
-		// Function type
+		// Functions type
 		return &info.Type{
 			Name: "func()",
 			Kind: reflect.Func,
@@ -186,7 +186,7 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 		}
 
 	case *ast.CallExpr:
-		// Function call - try to determine return type if possible
+		// Functions call - try to determine return type if possible
 		if ident, ok := e.Fun.(*ast.Ident); ok {
 			// Type conversions for basic types
 			kind := kindFromBasicType(ident.Name)
