@@ -3,7 +3,7 @@ package analyzer
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"github.com/viant/linager"
+	"github.com/viant/linager/analyzer/info"
 	"gopkg.in/yaml.v3"
 	"testing"
 )
@@ -11,7 +11,7 @@ import (
 func TestAnalyzeSourceCode(t *testing.T) {
 	tests := []testCase{
 		{
-			description: "Basic data linager tracking",
+			description: "Basic data info tracking",
 			path:        "example.go",
 			code: `
 package main
@@ -1381,7 +1381,7 @@ type testCase struct {
 	code        string
 	path        string
 	expectYaml  string
-	expect      []*linager.DataPoint
+	expect      []*info.DataPoint
 }
 
 func TestIdentityRef_MakeStructFieldIdentityRef(t *testing.T) {
@@ -1391,7 +1391,7 @@ func TestIdentityRef_MakeStructFieldIdentityRef(t *testing.T) {
 		pkgPath     string
 		structType  string
 		fieldName   string
-		expected    linager.IdentityRef
+		expected    info.IdentityRef
 	}{
 		{
 			description: "Simple struct field reference",
@@ -1414,13 +1414,13 @@ func TestIdentityRef_MakeStructFieldIdentityRef(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			result := linager.MakeStructFieldIdentityRef(tc.pkgPath, tc.structType, tc.fieldName)
+			result := info.MakeStructFieldIdentityRef(tc.pkgPath, tc.structType, tc.fieldName)
 			assert.EqualValues(t, tc.expected, result)
 		})
 	}
 }
 
-func adjustNils(expect []*linager.DataPoint) {
+func adjustNils(expect []*info.DataPoint) {
 	for _, item := range expect {
 		if len(item.Metadata) == 0 {
 			item.Metadata = nil

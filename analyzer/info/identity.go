@@ -1,4 +1,4 @@
-package linager
+package info
 
 import (
 	"fmt"

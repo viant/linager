@@ -3,7 +3,7 @@ package analyzer
 import (
 	"bytes"
 	"fmt"
-	"github.com/viant/linager"
+	"github.com/viant/linager/analyzer/info"
 	"go/ast"
 	"go/importer"
 	"go/parser"
@@ -22,7 +22,7 @@ type visitor struct {
 	pkg            *types.Package
 	info           *types.Info
 	project        string
-	dataPoints     map[string]*linager.DataPoint // Map from identity ref to DataPoint
+	dataPoints     map[string]*info.DataPoint // Map from identity ref to DataPoint
 	dataPointsKey  []string
 	conditions     []string            // Stack of conditions
 	conditionDeps  map[string][]string // Map from condition expressions to dependencies
@@ -51,7 +51,7 @@ type ModuleInfo struct {
 }
 
 // AnalyzeSourceCode analyzes the given Go source code and returns the data lineage information.
-func AnalyzeSourceCode(source, project, path string) ([]*linager.DataPoint, error) {
+func AnalyzeSourceCode(source, project, path string) ([]*info.DataPoint, error) {
 	fset := token.NewFileSet()
 
 	// Parse the source code
@@ -62,14 +62,14 @@ func AnalyzeSourceCode(source, project, path string) ([]*linager.DataPoint, erro
 
 	// Create the type information
 	conf := types.Config{Importer: importer.Default()}
-	info := &types.Info{
+	anInfo := &types.Info{
 		Types:      make(map[ast.Expr]types.TypeAndValue),
 		Defs:       make(map[*ast.Ident]types.Object),
 		Uses:       make(map[*ast.Ident]types.Object),
 		Selections: make(map[*ast.SelectorExpr]*types.Selection),
 	}
 
-	pkg, err := conf.Check("main", fset, []*ast.File{file}, info)
+	pkg, err := conf.Check("main", fset, []*ast.File{file}, anInfo)
 	if err != nil {
 		// Don't fail completely on type errors, try to continue
 		fmt.Printf("Type checking error (non-fatal): %v\n", err)
@@ -81,13 +81,13 @@ func AnalyzeSourceCode(source, project, path string) ([]*linager.DataPoint, erro
 		modInfo, _ = LoadModuleInfo(dir)
 	}
 
-	// Now, traverse the AST and collect data lineage info
+	// Now, traverse the AST and collect data lineage anInfo
 	v := &visitor{
 		fset:           fset,
 		pkg:            pkg,
 		project:        project,
-		info:           info,
-		dataPoints:     make(map[string]*linager.DataPoint),
+		info:           anInfo,
+		dataPoints:     make(map[string]*info.DataPoint),
 		conditionDeps:  make(map[string][]string),
 		path:           path,
 		functionStack:  []string{},
@@ -114,7 +114,7 @@ func AnalyzeSourceCode(source, project, path string) ([]*linager.DataPoint, erro
 	v.establishDependencies()
 
 	// Build the return data points list in sorted order
-	var points = make([]*linager.DataPoint, 0)
+	var points = make([]*info.DataPoint, 0)
 
 	// First, add struct fields in expected order
 	for _, key := range v.dataPointsKey {
@@ -258,7 +258,7 @@ func (v *visitor) Visit(n ast.Node) ast.Visitor {
 							sort.Strings(rhsDeps)
 							for _, dep := range rhsDeps {
 								if dep != string(dp.Identity.Ref) { // Avoid self-references
-									writePoint.Dependencies = append(writePoint.Dependencies, linager.IdentityRef(dep))
+									writePoint.Dependencies = append(writePoint.Dependencies, info.IdentityRef(dep))
 								}
 							}
 						}
@@ -298,8 +298,8 @@ func (v *visitor) handleAssignment(node *ast.AssignStmt) {
 			sort.Strings(rhsDeps)
 			for _, dep := range rhsDeps {
 				if dep != lhsRef { // Avoid self-references
-					if !containsIdentityRef(lhsTP.Dependencies, linager.IdentityRef(dep)) {
-						lhsTP.Dependencies = append(lhsTP.Dependencies, linager.IdentityRef(dep))
+					if !containsIdentityRef(lhsTP.Dependencies, info.IdentityRef(dep)) {
+						lhsTP.Dependencies = append(lhsTP.Dependencies, info.IdentityRef(dep))
 					}
 				}
 			}
@@ -329,8 +329,8 @@ func (v *visitor) handleAssignment(node *ast.AssignStmt) {
 				sort.Strings(rhsDeps)
 				for _, dep := range rhsDeps {
 					if dep != lhsRef { // Avoid self-references
-						if !containsIdentityRef(lhsTP.Dependencies, linager.IdentityRef(dep)) {
-							lhsTP.Dependencies = append(lhsTP.Dependencies, linager.IdentityRef(dep))
+						if !containsIdentityRef(lhsTP.Dependencies, info.IdentityRef(dep)) {
+							lhsTP.Dependencies = append(lhsTP.Dependencies, info.IdentityRef(dep))
 						}
 					}
 				}
@@ -376,10 +376,10 @@ func (v *visitor) handleTypeSpec(node *ast.TypeSpec) {
 			embeddedType := strings.TrimPrefix(fieldType, "*")
 
 			// Create an identity for the embedded field
-			ref := linager.MakeStructFieldIdentityRef(packagePath, structName+typeParams, embeddedType)
+			ref := info.MakeStructFieldIdentityRef(packagePath, structName+typeParams, embeddedType)
 
-			dp := &linager.DataPoint{
-				Identity: linager.Identity{
+			dp := &info.DataPoint{
+				Identity: info.Identity{
 					Ref:        ref,
 					PkgPath:    packagePath,
 					Package:    packagePath,
@@ -387,7 +387,7 @@ func (v *visitor) handleTypeSpec(node *ast.TypeSpec) {
 					Name:       embeddedType,
 					Kind:       fieldType,
 				},
-				Definition: linager.CodeLocation{
+				Definition: info.CodeLocation{
 					FilePath:   v.path,
 					LineNumber: v.fset.Position(field.Pos()).Line,
 				},
@@ -411,7 +411,7 @@ func (v *visitor) handleTypeSpec(node *ast.TypeSpec) {
 		// Regular named fields
 		for _, name := range field.Names {
 			fieldName := name.Name
-			ref := linager.MakeStructFieldIdentityRef(packagePath, structName+typeParams, fieldName)
+			ref := info.MakeStructFieldIdentityRef(packagePath, structName+typeParams, fieldName)
 
 			fieldType := v.exprToString(field.Type)
 
@@ -432,8 +432,8 @@ func (v *visitor) handleTypeSpec(node *ast.TypeSpec) {
 				tagText = tagText[1 : len(tagText)-1]
 			}
 
-			dp := &linager.DataPoint{
-				Identity: linager.Identity{
+			dp := &info.DataPoint{
+				Identity: info.Identity{
 					Ref:        ref,
 					PkgPath:    packagePath,
 					Package:    packagePath,
@@ -441,7 +441,7 @@ func (v *visitor) handleTypeSpec(node *ast.TypeSpec) {
 					Name:       fieldName,
 					Kind:       fieldType,
 				},
-				Definition: linager.CodeLocation{
+				Definition: info.CodeLocation{
 					FilePath:   v.path,
 					LineNumber: v.fset.Position(name.Pos()).Line,
 				},
@@ -521,13 +521,13 @@ func (v *visitor) handleFuncDecl(node *ast.FuncDecl) {
 				paramType := v.exprToString(paramField.Type)
 
 				// Create DataPoint for parameter
-				dp := &linager.DataPoint{
-					Identity: linager.Identity{
-						Ref:  linager.IdentityRef(paramName),
+				dp := &info.DataPoint{
+					Identity: info.Identity{
+						Ref:  info.IdentityRef(paramName),
 						Name: paramName,
 						Kind: paramType,
 					},
-					Definition: linager.CodeLocation{
+					Definition: info.CodeLocation{
 						FilePath:   v.path,
 						LineNumber: v.fset.Position(name.Pos()).Line,
 					},
@@ -556,13 +556,13 @@ func (v *visitor) handleFuncDecl(node *ast.FuncDecl) {
 				returnType := v.exprToString(resultField.Type)
 
 				// Create DataPoint for named return value
-				dp := &linager.DataPoint{
-					Identity: linager.Identity{
-						Ref:  linager.IdentityRef(returnName),
+				dp := &info.DataPoint{
+					Identity: info.Identity{
+						Ref:  info.IdentityRef(returnName),
 						Name: returnName,
 						Kind: returnType,
 					},
-					Definition: linager.CodeLocation{
+					Definition: info.CodeLocation{
 						FilePath:   v.path,
 						LineNumber: v.fset.Position(name.Pos()).Line,
 					},
@@ -632,7 +632,7 @@ func (v *visitor) handleReturnStmt(node *ast.ReturnStmt) {
 						sort.Strings(deps)
 						for _, dep := range deps {
 							if dep != string(dp.Identity.Ref) { // Avoid self-references
-								writePoint.Dependencies = append(writePoint.Dependencies, linager.IdentityRef(dep))
+								writePoint.Dependencies = append(writePoint.Dependencies, info.IdentityRef(dep))
 							}
 						}
 					}
@@ -643,7 +643,7 @@ func (v *visitor) handleReturnStmt(node *ast.ReturnStmt) {
 }
 
 // handleExpression processes an expression and returns the associated DataPoint and TouchPoint (if any)
-func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) (*linager.DataPoint, *linager.TouchPoint) {
+func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) (*info.DataPoint, *info.TouchPoint) {
 	if expr == nil {
 		return nil, nil
 	}
@@ -788,7 +788,7 @@ func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) (*linager.DataPo
 				// Named field initialization: Field: value
 				if keyIdent, ok := kv.Key.(*ast.Ident); ok {
 					fieldName := keyIdent.Name
-					ref := string(linager.MakeStructFieldIdentityRef(packagePath, structType, fieldName))
+					ref := string(info.MakeStructFieldIdentityRef(packagePath, structType, fieldName))
 
 					dp := v.getDataPoint(ref, kv.Value)
 					tp := v.updateTouchPoints(dp, true, kv) // Writing to field
@@ -802,8 +802,8 @@ func (v *visitor) handleExpression(expr ast.Expr, isWrite bool) (*linager.DataPo
 						sort.Strings(rhsDeps)
 						for _, dep := range rhsDeps {
 							if dep != ref { // Avoid self-references
-								if !containsIdentityRef(tp.Dependencies, linager.IdentityRef(dep)) {
-									tp.Dependencies = append(tp.Dependencies, linager.IdentityRef(dep))
+								if !containsIdentityRef(tp.Dependencies, info.IdentityRef(dep)) {
+									tp.Dependencies = append(tp.Dependencies, info.IdentityRef(dep))
 								}
 							}
 						}
@@ -966,7 +966,7 @@ func (v *visitor) resolveStructFieldID(expr *ast.SelectorExpr) string {
 			}
 
 			fieldName := expr.Sel.Name
-			return string(linager.MakeStructFieldIdentityRef(packagePath, structName, fieldName))
+			return string(info.MakeStructFieldIdentityRef(packagePath, structName, fieldName))
 		}
 	}
 
@@ -984,7 +984,7 @@ func (v *visitor) resolveStructFieldID(expr *ast.SelectorExpr) string {
 				}
 				structName := typeObj.Obj().Name()
 				fieldName := expr.Sel.Name
-				return string(linager.MakeStructFieldIdentityRef(packagePath, structName, fieldName))
+				return string(info.MakeStructFieldIdentityRef(packagePath, structName, fieldName))
 			}
 		}
 	}
@@ -993,15 +993,15 @@ func (v *visitor) resolveStructFieldID(expr *ast.SelectorExpr) string {
 }
 
 // getDataPoint creates or retrieves a DataPoint for the given identity reference
-func (v *visitor) getDataPoint(varName string, expr ast.Node) *linager.DataPoint {
+func (v *visitor) getDataPoint(varName string, expr ast.Node) *info.DataPoint {
 	// Resolve identity ref from varName and expr
-	var identityRef linager.IdentityRef
+	var identityRef info.IdentityRef
 	// For struct fields, varName would be the identity ref
 	if strings.Contains(varName, ":") {
-		identityRef = linager.IdentityRef(varName)
+		identityRef = info.IdentityRef(varName)
 	} else {
 		// For variables, use the variable name as identity ref
-		identityRef = linager.IdentityRef(varName)
+		identityRef = info.IdentityRef(varName)
 	}
 
 	// Check if this datapoint already exists
@@ -1029,8 +1029,8 @@ func (v *visitor) getDataPoint(varName string, expr ast.Node) *linager.DataPoint
 			}
 		}
 
-		dp = &linager.DataPoint{
-			Identity: linager.Identity{
+		dp = &info.DataPoint{
+			Identity: info.Identity{
 				Ref:        identityRef,
 				PkgPath:    pkgPath,
 				Package:    pkgPath,
@@ -1038,13 +1038,13 @@ func (v *visitor) getDataPoint(varName string, expr ast.Node) *linager.DataPoint
 				HolderType: holderType,
 				Kind:       kindStr,
 			},
-			Definition: linager.CodeLocation{
+			Definition: info.CodeLocation{
 				FilePath:   v.path,
 				LineNumber: v.fset.Position(expr.Pos()).Line,
 			},
 			Metadata: map[string]interface{}{},
-			Writes:   []*linager.TouchPoint{},
-			Reads:    []*linager.TouchPoint{},
+			Writes:   []*info.TouchPoint{},
+			Reads:    []*info.TouchPoint{},
 		}
 
 		v.dataPoints[string(identityRef)] = dp
@@ -1172,8 +1172,8 @@ func LoadProject(dir string) ([]*packages.Package, error) {
 }
 
 // AnalyzePackages analyzes all packages from a loaded project
-func AnalyzePackages(pkgs []*packages.Package) ([]*linager.DataPoint, error) {
-	allDataPoints := make([]*linager.DataPoint, 0)
+func AnalyzePackages(pkgs []*packages.Package) ([]*info.DataPoint, error) {
+	allDataPoints := make([]*info.DataPoint, 0)
 
 	for _, pkg := range pkgs {
 		// Process each file in the package
@@ -1190,7 +1190,7 @@ func AnalyzePackages(pkgs []*packages.Package) ([]*linager.DataPoint, error) {
 				fset:           fset,
 				pkg:            pkg.Types,
 				info:           pkg.TypesInfo,
-				dataPoints:     make(map[string]*linager.DataPoint),
+				dataPoints:     make(map[string]*info.DataPoint),
 				path:           fileName,
 				callGraph:      make(map[string][]string),
 				functionStack:  []string{},

@@ -1,7 +1,7 @@
 package analyzer
 
 import (
-	"github.com/viant/linager"
+	"github.com/viant/linager/analyzer/info"
 	"go/ast"
 	"go/token"
 	"strings"
@@ -17,7 +17,7 @@ func (v *visitor) establishDependencies() {
 }
 
 // updateTouchPoints adds read/write information to a DataPoint
-func (v *visitor) updateTouchPoints(dp *linager.DataPoint, isWrite bool, expr interface{}) *linager.TouchPoint {
+func (v *visitor) updateTouchPoints(dp *info.DataPoint, isWrite bool, expr interface{}) *info.TouchPoint {
 	condition := v.currentCondition()
 
 	// Get position information from the AST node
@@ -41,7 +41,7 @@ func (v *visitor) updateTouchPoints(dp *linager.DataPoint, isWrite bool, expr in
 	columnEnd := pos.Column + len(exprStr)
 
 	// Create the TouchContext from the current function/method context
-	context := linager.TouchContext{}
+	context := info.TouchContext{}
 	if len(v.functionStack) > 0 {
 		context.Function = v.functionStack[len(v.functionStack)-1]
 	}
@@ -58,8 +58,8 @@ func (v *visitor) updateTouchPoints(dp *linager.DataPoint, isWrite bool, expr in
 		}
 	}
 
-	touchPoint := &linager.TouchPoint{
-		CodeLocation: linager.CodeLocation{
+	touchPoint := &info.TouchPoint{
+		CodeLocation: info.CodeLocation{
 			FilePath:    v.path,
 			LineNumber:  lineNumber,
 			ColumnStart: pos.Column,
@@ -126,8 +126,8 @@ func (v *visitor) removeDuplicateDependencies() {
 		// Deduplicate dependencies in write points
 		for _, writePoint := range dp.Writes {
 			if len(writePoint.Dependencies) > 0 {
-				uniqueDeps := make([]linager.IdentityRef, 0, len(writePoint.Dependencies))
-				seen := make(map[linager.IdentityRef]bool)
+				uniqueDeps := make([]info.IdentityRef, 0, len(writePoint.Dependencies))
+				seen := make(map[info.IdentityRef]bool)
 
 				for _, dep := range writePoint.Dependencies {
 					if !seen[dep] {
@@ -142,8 +142,8 @@ func (v *visitor) removeDuplicateDependencies() {
 		// Deduplicate dependencies in read points
 		for _, readPoint := range dp.Reads {
 			if len(readPoint.Dependencies) > 0 {
-				uniqueDeps := make([]linager.IdentityRef, 0, len(readPoint.Dependencies))
-				seen := make(map[linager.IdentityRef]bool)
+				uniqueDeps := make([]info.IdentityRef, 0, len(readPoint.Dependencies))
+				seen := make(map[info.IdentityRef]bool)
 
 				for _, dep := range readPoint.Dependencies {
 					if !seen[dep] {
@@ -158,7 +158,7 @@ func (v *visitor) removeDuplicateDependencies() {
 }
 
 // Helper function to check if an identity ref is in a slice
-func containsIdentityRef(slice []linager.IdentityRef, ref linager.IdentityRef) bool {
+func containsIdentityRef(slice []info.IdentityRef, ref info.IdentityRef) bool {
 	for _, r := range slice {
 		if r == ref {
 			return true

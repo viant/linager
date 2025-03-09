@@ -3,7 +3,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/viant/linager)](https://goreportcard.com/report/github.com/viant/linager)
 [![GoDoc](https://godoc.org/github.com/viant/linager?status.svg)](https://godoc.org/github.com/viant/linager)
 
-Linager is a sophisticated static analysis tool for Go that tracks data lineage, dependencies, and usage patterns within your codebase. It provides detailed insights about how data flows through your application, making it easier to understand, refactor, and maintain complex code.
+Linager is a sophisticated static analysis tool for Go that tracks data lineage, dependencies, and usage patterns within your codebase. 
+It provides detailed insights about how data flows through your application, making it easier to understand, refactor, and maintain complex code.
 
 ## Features
 

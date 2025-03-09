@@ -1,4 +1,4 @@
-package linager
+package info
 
 // DataPoint represents an identifier and its data lineage information
 type DataPoint struct {
