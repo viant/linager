@@ -2,6 +2,9 @@ package repository
 
 import (
 	"bufio"
+	"context"
+	"github.com/viant/afs"
+	"golang.org/x/mod/modfile"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -33,7 +36,7 @@ func New() *Detector {
 }
 
 // DetectProject identifies the project root for the given file path and returns project info
-func (d *Detector) DetectProject(filePath string, baseURL ...string) (*Info, error) {
+func (d *Detector) DetectProject(filePath string, baseURL ...string) (*Project, error) {
 	// Get the absolute path
 	absPath, err := filepath.Abs(filePath)
 	if err != nil {
@@ -55,8 +58,8 @@ func (d *Detector) DetectProject(filePath string, baseURL ...string) (*Info, err
 	// Search up the directory tree for project markers
 	rootPath, projectType := d.findProjectRoot(startDir)
 
-	// Create default Info with fallback values
-	info := &Info{
+	// Create default Project with fallback values
+	info := &Project{
 		Type:     "unknown",
 		RootPath: absPath,
 	}
@@ -172,6 +175,7 @@ func (d *Detector) findProjectRoot(startDir string) (string, string) {
 func (d *Detector) findGitRoot(startDir string) string {
 	dir := startDir
 
+	homeDir := os.Getenv("HOME")
 	// Search up the directory tree for .git directory
 	for {
 		gitDir := filepath.Join(dir, ".git")
@@ -184,6 +188,9 @@ func (d *Detector) findGitRoot(startDir string) string {
 		if parent == dir {
 			// We've reached the filesystem root with no match
 			break
+		}
+		if homeDir == parent {
+			return ""
 		}
 		dir = parent
 	}
@@ -254,11 +261,17 @@ func (d *Detector) extractProjectName(rootPath string, projectType string) strin
 // Helper functions to extract project names from various config files
 
 func extractGoModuleName(goModPath string) string {
+	fs := afs.New()
+	if content, _ := fs.DownloadWithURL(context.Background(), goModPath); len(content) > 0 {
+		if mod, _ := modfile.Parse(goModPath, content, nil); mod != nil {
+			return mod.Module.Mod.Path
+		}
+
+	}
 	data, err := os.ReadFile(goModPath)
 	if err != nil {
 		return filepath.Base(filepath.Dir(goModPath))
 	}
-
 	moduleRegex := regexp.MustCompile(`module\s+([^\s]+)`)
 	matches := moduleRegex.FindSubmatch(data)
 	if len(matches) < 2 {

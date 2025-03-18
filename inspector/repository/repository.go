@@ -4,11 +4,11 @@ type Repository struct {
 	Kind   string
 	Root   string
 	Origin string
-	Info   *Info
+	Info   *Project
 }
 
-// Info represents information about a detected project
-type Info struct {
+// Project represents information about a detected project
+type Project struct {
 	RootPath     string // Absolute path to the project root directory
 	Type         string // Type of project (go, java, js, python, etc.)
 	Name         string // Name of the project (extracted from config files)

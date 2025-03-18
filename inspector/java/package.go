@@ -31,9 +31,6 @@ func (i *Inspector) InspectPackages(rootPath string) ([]*info.Package, error) {
 		if err != nil {
 			return err
 		}
-
-		fmt.Println(aPath)
-
 		if hasJavaFiles {
 			pkg, err := i.InspectPackage(aPath)
 			if err != nil {

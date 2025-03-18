@@ -126,7 +126,7 @@ func (i *Inspector) inspectSinglePackage(packageDir string) ([]*info.File, []*in
 	}
 
 	// Process non-Go files as assets if AllFilesInFolder is enabled
-	if i.config.AllFilesInFolder {
+	if !i.config.SkipAsset {
 		assets, err = repository.ReadAssetsRecursively(packageDir, true, getImportPath, "go")
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to read assets: %w", err)

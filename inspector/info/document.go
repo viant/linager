@@ -2,13 +2,13 @@ package info
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"github.com/viant/afs"
 	"path"
 	"strings"
 )
+
+const chunkSize = 8192 - 256
 
 // DocumentKind indicates the type of code element that the document represents
 type DocumentKind string
@@ -21,6 +21,9 @@ const (
 	KindType       DocumentKind = "Type"     // Type declaration only
 	KindTypeMethod DocumentKind = "Method"
 	KindTypeField  DocumentKind = "Field"
+	KindAsset      DocumentKind = "Asset" // Package-level information
+	KindCode       DocumentKind = "Code"  // Package-level information
+
 )
 
 // Document represents a code element with its metadata for vector embedding
@@ -30,9 +33,222 @@ type Document struct {
 	Package   string       `json:"package"`   // Package name
 	Name      string       `json:"name"`      // Element name
 	Type      string       `json:"type"`      // Type of the element (e.g., function signature)
-	Hash      string       `json:"hash"`      // Hash of the content
+	Hash      uint64       `json:"hash"`      // Hash of the content
 	Signature string       `json:"signature"` //Signature
 	Content   string       `json:"content"`   // Full content of the element including comments, annotations, etc.
+	Part      int
+}
+
+type Documents []*Document
+
+func (d *Documents) Append(doc *Document) {
+	if len(doc.Content) > chunkSize {
+		// Split the document into chunks
+		*d = append(*d, SplitDocument(doc)...)
+		return
+	}
+	*d = append(*d, doc)
+}
+
+func (d Documents) Size() int {
+	size := 0
+	for _, doc := range d {
+		if doc == nil {
+			continue
+		}
+		size += doc.Size()
+	}
+	return size
+
+}
+
+// SplitDocument splits a large document into multiple chunks of 8k - 256 bytes.
+func SplitDocument(doc *Document) Documents {
+	content := doc.Content
+	var docs Documents
+	n := len(content)
+
+	if n <= chunkSize {
+		// No need to split, return as a single document
+		doc.Part = 0
+		docs.Append(doc)
+		return docs
+	}
+
+	// Split into chunks
+	for i, start := 0, 0; start < n; i++ {
+		end := start + chunkSize
+		if end > n {
+			end = n
+		}
+
+		// Create a new document chunk
+		chunk := &Document{
+			Kind:      doc.Kind,
+			Path:      doc.Path,
+			Package:   doc.Package,
+			Name:      doc.Name,
+			Type:      doc.Type,
+			Signature: doc.Signature,
+			Content:   content[start:end],
+			Part:      i,
+			Hash:      doc.HashContent(),
+		}
+		docs.Append(chunk)
+		start = end
+	}
+
+	return docs
+}
+
+func (d *Document) Size() int {
+	size := len(d.Content) + len(d.Type) + len(d.Signature) + len(d.Path)
+	if d.Kind == KindType {
+		size += len(d.Name)
+	}
+	return size + 20 //keys in meta
+}
+
+func (d Documents) FilterBySize(totalSize int) Documents {
+	size := 0
+	var result Documents
+	for _, doc := range d {
+		if doc == nil {
+			continue
+		}
+		size += doc.Size()
+		if size >= totalSize {
+			break
+		}
+		result = append(result, doc)
+	}
+	return result
+}
+
+func (d Documents) GroupBy() Documents {
+	// Group documents by path
+	pathMap := make(map[string][]*Document)
+	orderedPaths := make([]string, 0)
+
+	// First pass: group documents by file path
+	for _, doc := range d {
+		if doc == nil {
+			continue
+		}
+		if _, ok := pathMap[doc.Path]; !ok {
+			orderedPaths = append(orderedPaths, doc.Path)
+		}
+		pathMap[doc.Path] = append(pathMap[doc.Path], doc)
+
+	}
+
+	var result Documents
+
+	// Second pass: create code documents for each file
+outer:
+	for _, path := range orderedPaths {
+		docs := pathMap[path]
+		// Extract package name (should be the same for all docs in a file)
+		pkgName := ""
+		for _, doc := range docs {
+			if doc.Kind == KindAsset {
+				result = append(result, doc)
+				continue outer
+			}
+			if doc.Package != "" {
+				pkgName = doc.Package
+				break
+			}
+			continue
+		}
+
+		if pkgName == "" {
+			continue // Skip if we can't determine the package
+		}
+
+		// Start constructing the file content
+		fileContent := fmt.Sprintf("package %s\n\n", pkgName)
+
+		// Find imports (we would need to add proper import detection)
+		// TODO: Properly extract imports from documents
+
+		// Group documents by their kinds for proper ordering
+		var types []*Document
+		var consts []*Document
+		var vars []*Document
+		var funcs []*Document
+		var methods []*Document
+
+		for _, doc := range docs {
+			switch doc.Kind {
+			case KindType:
+				types = append(types, doc)
+			case KindConstant:
+				consts = append(consts, doc)
+			case KindVariable:
+				vars = append(vars, doc)
+			case KindFileFunc:
+				funcs = append(funcs, doc)
+			case KindTypeMethod:
+				methods = append(methods, doc)
+			}
+		}
+
+		// Add constants
+		if len(consts) > 0 {
+			for _, c := range consts {
+				fileContent += c.Content + "\n\n"
+			}
+		}
+
+		// Add variables
+		if len(vars) > 0 {
+			for _, v := range vars {
+				fileContent += v.Content + "\n\n"
+			}
+		}
+
+		// Add types
+		if len(types) > 0 {
+			for _, t := range types {
+				fileContent += t.Content + "\n\n"
+			}
+		}
+
+		// Add functions (without receivers)
+		if len(funcs) > 0 {
+			for _, f := range funcs {
+				fileContent += f.Content + "\n\n"
+			}
+		}
+
+		// Add methods - group by receiver type
+		receiverMethods := make(map[string][]*Document)
+		for _, m := range methods {
+			if m.Type != "" { // Only process methods with a receiver
+				receiverMethods[m.Type] = append(receiverMethods[m.Type], m)
+			}
+		}
+
+		for _, typeMethods := range receiverMethods {
+			for _, m := range typeMethods {
+				fileContent += m.Content + "\n\n"
+			}
+		}
+
+		// Create a document for the entire file
+		codeDoc := &Document{
+			Kind:    KindCode,
+			Path:    path,
+			Package: pkgName,
+			Name:    strings.TrimSuffix(strings.TrimPrefix(path, pkgName+"/"), ".go"),
+			Content: fileContent,
+		}
+		codeDoc.Hash = codeDoc.HashContent()
+		result = append(result, codeDoc)
+	}
+
+	return result
 }
 
 func (d *Document) ID() string {
@@ -51,18 +267,50 @@ func (d *Document) ID() string {
 	return builder.String()
 }
 
-// HashContent generates a SHA-256 hash of the document content
-func (d *Document) HashContent() string {
-	hasher := sha256.New()
-	hasher.Write([]byte(d.Content))
-	return hex.EncodeToString(hasher.Sum(nil))
+// HashContent generates content hash
+func (d *Document) HashContent() uint64 {
+	hash, _ := Hash([]byte(d.Content))
+	return hash
 }
 
 // CreateDocuments creates Document instances for embedding from a project
-func (p *Project) CreateDocuments(ctx context.Context) ([]*Document, error) {
-	var documents []*Document
+func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Documents, error) {
+	var documents Documents
 	fs := afs.New()
+
 	for _, pkg := range p.Packages {
+
+		if len(pkg.Assets) > 0 {
+			candidatePath := pkg.Assets[0].Path
+			if pkgPath != "" && !strings.HasPrefix(candidatePath, pkgPath) {
+				continue // Skip packages that don't match the specified package path
+			}
+			for _, asset := range pkg.Assets {
+				if len(asset.Content) > 16*1024 { //for not skipping, needs to split
+					continue
+				}
+				methodDoc := &Document{
+					Kind:    KindAsset,
+					Package: pkg.Name,
+					Name:    asset.Name,
+					Path:    asset.Path,
+					Content: string(asset.Content),
+				}
+				methodDoc.Hash = methodDoc.HashContent()
+				documents.Append(methodDoc)
+
+			}
+		}
+
+		if len(pkg.FileSet) == 0 {
+			continue
+		}
+
+		candidatePath := pkg.FileSet[0].Path
+		if pkgPath != "" && !strings.HasPrefix(candidatePath, pkgPath) {
+			continue // Skip packages that don't match the specified package path
+		}
+
 		var typeFields = map[string]int{}
 		for _, file := range pkg.FileSet {
 			location := path.Join(p.RootPath, file.Path)
@@ -85,12 +333,12 @@ func (p *Project) CreateDocuments(ctx context.Context) ([]*Document, error) {
 					Content: content,
 				}
 				doc.Hash = doc.HashContent()
-				documents = append(documents, doc)
+				documents.Append(doc)
 			}
 
 			// Process variables
 			for _, variable := range file.Variables {
-				content := ""
+				content := variable.Value
 				if variable.Location != nil {
 					content = string(source[variable.Location.Start:variable.Location.End])
 				}
@@ -109,7 +357,7 @@ func (p *Project) CreateDocuments(ctx context.Context) ([]*Document, error) {
 					Content: content,
 				}
 				doc.Hash = doc.HashContent()
-				documents = append(documents, doc)
+				documents.Append(doc)
 			}
 
 			// Process file functions (without receiver)
@@ -124,7 +372,7 @@ func (p *Project) CreateDocuments(ctx context.Context) ([]*Document, error) {
 						Content:   function.Content(source),
 					}
 					doc.Hash = doc.HashContent()
-					documents = append(documents, doc)
+					documents.Append(doc)
 				}
 			}
 
@@ -143,7 +391,7 @@ func (p *Project) CreateDocuments(ctx context.Context) ([]*Document, error) {
 						Content: content,
 					}
 					doc.Hash = doc.HashContent()
-					documents = append(documents, doc)
+					documents.Append(doc)
 				}
 				// Type fields
 				if len(aType.Fields) > 0 {
@@ -161,7 +409,7 @@ func (p *Project) CreateDocuments(ctx context.Context) ([]*Document, error) {
 								Content: fieldContent,
 							}
 							fieldDoc.Hash = fieldDoc.HashContent()
-							documents = append(documents, fieldDoc)
+							documents.Append(fieldDoc)
 						}
 					}
 				}
@@ -178,7 +426,7 @@ func (p *Project) CreateDocuments(ctx context.Context) ([]*Document, error) {
 						Content:   method.Content(source),
 					}
 					methodDoc.Hash = methodDoc.HashContent()
-					documents = append(documents, methodDoc)
+					documents.Append(methodDoc)
 				}
 			}
 			for typeName, count := range typeFields {
@@ -199,7 +447,7 @@ func (p *Project) CreateDocuments(ctx context.Context) ([]*Document, error) {
 					Content: content,
 				}
 				doc.Hash = doc.HashContent()
-				documents = append(documents, doc)
+				documents.Append(doc)
 			}
 		}
 	}

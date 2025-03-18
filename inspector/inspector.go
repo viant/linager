@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"fmt"
+	"github.com/viant/linager/inspector/repository"
 	"path/filepath"
 	"strings"
 
@@ -20,6 +21,9 @@ type Inspector interface {
 
 	// InspectPackage inspects a package directory and extracts all type information
 	InspectPackage(packagePath string) (*info.Package, error)
+
+	// InspectProject inspects a project directory and extracts all type information
+	InspectProject(location string) (*info.Project, error)
 }
 
 // Factory creates appropriate inspectors based on language
@@ -86,4 +90,15 @@ func (f *Factory) InspectPackage(packagePath string) (*info.Package, error) {
 	}
 
 	return nil, fmt.Errorf("unable to determine language for package: %s", packagePath)
+}
+
+// InspectProject is a convenience method that gets the appropriate inspector for a package
+func (f *Factory) InspectProject(project *repository.Project) (*info.Project, error) {
+	switch project.Type {
+	case "go":
+		return golang.NewInspector(f.config).InspectProject(project.RootPath)
+	case "java":
+		return java.NewInspector(f.config).InspectProject(project.RootPath)
+	}
+	return nil, nil
 }

@@ -224,29 +224,128 @@ func getImportPath(filePath string) string {
 	return filePath
 }
 
-// extractValueAsString extracts a value from an expression as a string
+// fieldsToString converts a list of fields (parameters or results) into a string.
+func fieldsToString(fl *ast.FieldList, fset *token.FileSet) string {
+	if fl == nil {
+		return ""
+	}
+	var parts []string
+	for _, field := range fl.List {
+		var names []string
+		for _, name := range field.Names {
+			names = append(names, name.Name)
+		}
+
+		typeStr := extractValueAsString(field.Type, fset)
+		if len(names) > 0 {
+			parts = append(parts, fmt.Sprintf("%s %s", strings.Join(names, ", "), typeStr))
+		} else {
+			// anonymous field or no explicit name
+			parts = append(parts, typeStr)
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// blockStmtToString naively converts a block of statements into a string.
+// For a full representation, each statement would need to be traversed in detail.
+func blockStmtToString(block *ast.BlockStmt, fset *token.FileSet) string {
+	if block == nil {
+		return "{}"
+	}
+	var stmtStrs []string
+	for _, stmt := range block.List {
+		// We'll just show the statement type here.
+		// A more thorough approach would recursively convert each statement.
+		stmtStrs = append(stmtStrs, fmt.Sprintf("<%T>", stmt))
+	}
+	return fmt.Sprintf("{\n  %s\n}", strings.Join(stmtStrs, "\n  "))
+}
+
+// extractValueAsString extracts a value from an expression as a string without simplifications.
 func extractValueAsString(expr ast.Expr, fset *token.FileSet) string {
 	switch e := expr.(type) {
 	case *ast.BasicLit:
 		return e.Value
+
 	case *ast.Ident:
 		return e.Name
+
 	case *ast.CompositeLit:
-		return "{...}" // Simplified representation
+		// Show type and each element.
+		typeStr := ""
+		if e.Type != nil {
+			typeStr = extractValueAsString(e.Type, fset)
+		}
+		var elts []string
+		for _, elt := range e.Elts {
+			elts = append(elts, extractValueAsString(elt, fset))
+		}
+		return fmt.Sprintf("%s{%s}", typeStr, strings.Join(elts, ", "))
+
 	case *ast.FuncLit:
-		return "func(){...}" // Simplified representation
+		// Display function parameters, results, and a naive version of the body.
+		params := fieldsToString(e.Type.Params, fset)
+		results := fieldsToString(e.Type.Results, fset)
+		body := blockStmtToString(e.Body, fset)
+		if results != "" {
+			results = " (" + results + ")"
+		}
+		return fmt.Sprintf("func(%s)%s %s", params, results, body)
+
 	case *ast.BinaryExpr:
 		leftVal := extractValueAsString(e.X, fset)
 		rightVal := extractValueAsString(e.Y, fset)
-		return fmt.Sprintf("%s %s %s", leftVal, e.Op.String(), rightVal)
+		return fmt.Sprintf("(%s %s %s)", leftVal, e.Op.String(), rightVal)
+
 	case *ast.SelectorExpr:
 		return fmt.Sprintf("%s.%s", extractValueAsString(e.X, fset), e.Sel.Name)
+
 	case *ast.CallExpr:
-		return fmt.Sprintf("%s(...)", extractValueAsString(e.Fun, fset))
+		// Show function and all arguments.
+		args := make([]string, len(e.Args))
+		for i, arg := range e.Args {
+			args[i] = extractValueAsString(arg, fset)
+		}
+		return fmt.Sprintf("%s(%s)", extractValueAsString(e.Fun, fset), strings.Join(args, ", "))
+
 	case *ast.UnaryExpr:
-		return fmt.Sprintf("%s%s", e.Op.String(), extractValueAsString(e.X, fset))
+		return fmt.Sprintf("(%s%s)", e.Op.String(), extractValueAsString(e.X, fset))
+
+	case *ast.ParenExpr:
+		return fmt.Sprintf("(%s)", extractValueAsString(e.X, fset))
+
+	case *ast.IndexExpr:
+		return fmt.Sprintf("%s[%s]", extractValueAsString(e.X, fset), extractValueAsString(e.Index, fset))
+
+	case *ast.SliceExpr:
+		low := ""
+		high := ""
+		max := ""
+		if e.Low != nil {
+			low = extractValueAsString(e.Low, fset)
+		}
+		if e.High != nil {
+			high = extractValueAsString(e.High, fset)
+		}
+		if e.Max != nil {
+			max = extractValueAsString(e.Max, fset)
+			return fmt.Sprintf("%s[%s:%s:%s]", extractValueAsString(e.X, fset), low, high, max)
+		}
+		return fmt.Sprintf("%s[%s:%s]", extractValueAsString(e.X, fset), low, high)
+
+	case *ast.TypeAssertExpr:
+		return fmt.Sprintf("%s.(%s)", extractValueAsString(e.X, fset), extractValueAsString(e.Type, fset))
+
+	case *ast.StarExpr:
+		return fmt.Sprintf("*%s", extractValueAsString(e.X, fset))
+
+	case *ast.KeyValueExpr:
+		return fmt.Sprintf("%s: %s", extractValueAsString(e.Key, fset), extractValueAsString(e.Value, fset))
+
 	default:
-		return "..." // Default for complex expressions
+		// Handle other expression types not explicitly covered.
+		return fmt.Sprintf("<unhandled %T>", expr)
 	}
 }
 

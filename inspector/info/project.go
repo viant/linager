@@ -12,8 +12,7 @@ type Project struct {
 	RootPath      string
 	RepositoryURL string
 	Packages      []*Package
-
-	packageMap map[string]int //position
+	packageMap    map[string]int //position
 }
 
 // GetPackage retrieves a constant by name from the file
@@ -57,11 +56,10 @@ func (p *Project) adjustRelativePath() {
 						file.ImportPath = strings.TrimSuffix(file.ImportPath, "/")
 					}
 				}
-
 			}
 			for _, asset := range pkg.Assets {
 				if asset.Path != "" {
-					relPath, err := filepath.Rel(p.RootPath, file.Path)
+					relPath, err := filepath.Rel(p.RootPath, asset.Path)
 					if err == nil {
 						asset.Name = filepath.Base(asset.Path)
 						asset.Path = relPath
@@ -86,7 +84,6 @@ func (p *Project) adjustPackageTypes() {
 	if p.RootPath == "" {
 		return
 	}
-
 	// Update all file paths to be relative to project root
 	for _, pkg := range p.Packages {
 		for _, file := range pkg.FileSet {
