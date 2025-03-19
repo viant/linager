@@ -28,6 +28,7 @@ const (
 
 // Document represents a code element with its metadata for vector embedding
 type Document struct {
+	ID        string       `json:"id"`        // Unique identifier for the document
 	Kind      DocumentKind `json:"kind"`      // Kind of document
 	Path      string       `json:"path"`      // File path
 	Package   string       `json:"package"`   // Package name
@@ -251,7 +252,10 @@ outer:
 	return result
 }
 
-func (d *Document) ID() string {
+func (d *Document) GetID() string {
+	if d.ID != "" {
+		return d.ID
+	}
 	builder := strings.Builder{}
 	builder.WriteString(string(d.Kind))
 	builder.WriteString(":")
@@ -263,8 +267,8 @@ func (d *Document) ID() string {
 		builder.WriteString(d.Name)
 	}
 	builder.WriteString(":")
-
-	return builder.String()
+	d.ID = builder.String()
+	return d.ID
 }
 
 // HashContent generates content hash
