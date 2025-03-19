@@ -38,7 +38,7 @@ type Document struct {
 	Hash      uint64       `json:"hash"`      // Hash of the content
 	Signature string       `json:"signature"` //Signature
 	Content   string       `json:"content"`   // Full content of the element including comments, annotations, etc.
-	Part      int
+	Part      int          `json:"part"`      // Part number for large documents
 }
 
 type Documents []*Document
