@@ -30,6 +30,7 @@ const (
 type Document struct {
 	ID        string       `json:"id"`        // Unique identifier for the document
 	Kind      DocumentKind `json:"kind"`      // Kind of document
+	Project   string       `json:"project"`   // Project name
 	Path      string       `json:"path"`      // File path
 	Package   string       `json:"package"`   // Package name
 	Name      string       `json:"name"`      // Element name
@@ -86,13 +87,14 @@ func SplitDocument(doc *Document) Documents {
 		// Create a new document chunk
 		chunk := &Document{
 			Kind:      doc.Kind,
-			Path:      doc.Path,
+			Project:   doc.Project,
 			Package:   doc.Package,
+			Path:      doc.Path,
 			Name:      doc.Name,
 			Type:      doc.Type,
 			Signature: doc.Signature,
 			Content:   content[start:end],
-			Part:      i,
+			Part:      i + 1,
 			Hash:      doc.HashContent(),
 		}
 		docs.Append(chunk)
@@ -240,6 +242,7 @@ outer:
 		// Create a document for the entire file
 		codeDoc := &Document{
 			Kind:    KindCode,
+			Project: d[0].Project,
 			Path:    path,
 			Package: pkgName,
 			Name:    strings.TrimSuffix(strings.TrimPrefix(path, pkgName+"/"), ".go"),
@@ -295,6 +298,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 				}
 				methodDoc := &Document{
 					Kind:    KindAsset,
+					Project: p.Name,
 					Package: pkg.Name,
 					Name:    asset.Name,
 					Path:    asset.Path,
@@ -331,6 +335,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 
 				doc := &Document{
 					Kind:    KindConstant,
+					Project: p.Name,
 					Package: pkg.Name,
 					Name:    constant.Name,
 					Path:    file.Path,
@@ -354,6 +359,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 
 				doc := &Document{
 					Kind:    KindVariable,
+					Project: p.Name,
 					Package: pkg.Name,
 					Name:    variable.Name,
 					Type:    typeName,
@@ -369,6 +375,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 				if function.Receiver == "" {
 					doc := &Document{
 						Kind:      KindFileFunc,
+						Project:   p.Name,
 						Package:   pkg.Name,
 						Path:      file.Path,
 						Signature: function.Signature,
@@ -389,6 +396,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 					content := aType.Content(source)
 					doc := &Document{
 						Kind:    KindType,
+						Project: p.Name,
 						Package: pkg.Name,
 						Path:    file.Path,
 						Name:    aType.Name,
@@ -406,6 +414,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 							// Individual field
 							fieldDoc := &Document{
 								Kind:    KindTypeField,
+								Project: p.Name,
 								Package: pkg.Name,
 								Name:    field.Name,
 								Path:    file.Path,
@@ -422,8 +431,8 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 				for _, method := range aType.Methods {
 					methodDoc := &Document{
 						Kind:      KindTypeMethod,
+						Project:   p.Name,
 						Package:   pkg.Name,
-						Name:      method.Name,
 						Path:      file.Path,
 						Type:      aType.Name,
 						Signature: method.Signature,
@@ -445,6 +454,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 				content := aType.Content(source)
 				doc := &Document{
 					Kind:    KindType,
+					Project: p.Name,
 					Package: pkg.Name,
 					Name:    aType.Name,
 					Path:    file.Path,
