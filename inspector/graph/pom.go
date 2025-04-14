@@ -1,4 +1,4 @@
-package info
+package graph
 
 // PomInfo represents the key information from a Maven POM file
 type PomInfo struct {

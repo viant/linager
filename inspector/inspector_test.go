@@ -38,7 +38,7 @@ func TestFactory_GetInspector(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			factory := inspector.NewFactory(&info.Config{
+			factory := inspector.NewFactory(&structure.Config{
 				IncludeUnexported: true,
 			})
 

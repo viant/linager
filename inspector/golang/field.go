@@ -1,15 +1,15 @@
 package golang
 
 import (
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"go/ast"
 	"reflect"
 	"strings"
 )
 
 // processFields processes struct fields
-func (i *Inspector) processFields(fields *ast.FieldList, importMap map[string]string) []*info.Field {
-	var result []*info.Field
+func (i *Inspector) processFields(fields *ast.FieldList, importMap map[string]string) []*graph.Field {
+	var result []*graph.Field
 
 	for _, field := range fields.List {
 		// Skip if this is an embedded field with a receiver and we're not including unexported
@@ -41,7 +41,7 @@ func (i *Inspector) processFields(fields *ast.FieldList, importMap map[string]st
 		// Create a field for each name, or a single field for embedded types
 		if len(field.Names) == 0 {
 			// Embedded field
-			fieldType := &info.Type{
+			fieldType := &graph.Type{
 				Name: exprToString(field.Type, importMap),
 			}
 
@@ -51,7 +51,7 @@ func (i *Inspector) processFields(fields *ast.FieldList, importMap map[string]st
 			}
 
 			_, annotation := parseCommentsAndAnnotations(comment)
-			result = append(result, &info.Field{
+			result = append(result, &graph.Field{
 				Type:       fieldType,
 				Tag:        tag,
 				Comment:    comment,
@@ -66,11 +66,11 @@ func (i *Inspector) processFields(fields *ast.FieldList, importMap map[string]st
 					continue
 				}
 
-				fieldType := &info.Type{
+				fieldType := &graph.Type{
 					Name: exprToString(field.Type, importMap),
 				}
 
-				result = append(result, &info.Field{
+				result = append(result, &graph.Field{
 					Name:       name.Name,
 					Type:       fieldType,
 					Tag:        tag,

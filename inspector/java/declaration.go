@@ -2,7 +2,7 @@ package java
 
 import (
 	sitter "github.com/smacker/go-tree-sitter"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"reflect"
 	"strings"
 )
@@ -74,7 +74,7 @@ func parseImportDeclarations(node *sitter.Node, source []byte) map[string]string
 }
 
 // parseClassDeclaration extracts class information from a Java source file
-func parseClassDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *info.Type {
+func parseClassDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *graph.Type {
 	if node.Type() != "class_declaration" {
 		return nil
 	}
@@ -87,13 +87,13 @@ func parseClassDeclaration(node *sitter.Node, source []byte, importMap map[strin
 	className := nameNode.Content(source)
 
 	// Create class type with location information
-	classType := &info.Type{
+	classType := &graph.Type{
 		Name:       className,
 		Kind:       reflect.Struct,
 		IsExported: isNodePublic(node, source),
-		Fields:     []*info.Field{},
-		Methods:    []*info.Function{},
-		Location: &info.Location{
+		Fields:     []*graph.Field{},
+		Methods:    []*graph.Function{},
+		Location: &graph.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
 		},
@@ -165,7 +165,7 @@ func parseClassDeclaration(node *sitter.Node, source []byte, importMap map[strin
 }
 
 // parseInterfaceDeclaration extracts interface information from a Java source file
-func parseInterfaceDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *info.Type {
+func parseInterfaceDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *graph.Type {
 	if node.Type() != "interface_declaration" {
 		return nil
 	}
@@ -178,12 +178,12 @@ func parseInterfaceDeclaration(node *sitter.Node, source []byte, importMap map[s
 	interfaceName := nameNode.Content(source)
 
 	// Create interface type with location information
-	interfaceType := &info.Type{
+	interfaceType := &graph.Type{
 		Name:       interfaceName,
 		Kind:       reflect.Interface,
 		IsExported: isNodePublic(node, source),
-		Methods:    []*info.Function{},
-		Location: &info.Location{
+		Methods:    []*graph.Function{},
+		Location: &graph.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
 		},
@@ -232,7 +232,7 @@ func parseInterfaceDeclaration(node *sitter.Node, source []byte, importMap map[s
 }
 
 // parseEnumDeclaration extracts enum information from a Java source file
-func parseEnumDeclaration(node *sitter.Node, source []byte) *info.Type {
+func parseEnumDeclaration(node *sitter.Node, source []byte) *graph.Type {
 	if node.Type() != "enum_declaration" {
 		return nil
 	}
@@ -245,11 +245,11 @@ func parseEnumDeclaration(node *sitter.Node, source []byte) *info.Type {
 	enumName := nameNode.Content(source)
 
 	// Create enum type with location information
-	enumType := &info.Type{
+	enumType := &graph.Type{
 		Name:       enumName,
 		Kind:       reflect.Int,
 		IsExported: isNodePublic(node, source),
-		Location: &info.Location{
+		Location: &graph.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
 		},
@@ -268,7 +268,7 @@ func parseEnumDeclaration(node *sitter.Node, source []byte) *info.Type {
 }
 
 // parseAnnotationTypeDeclaration extracts annotation information from a Java source file
-func parseAnnotationTypeDeclaration(node *sitter.Node, source []byte) *info.Type {
+func parseAnnotationTypeDeclaration(node *sitter.Node, source []byte) *graph.Type {
 	if node.Type() != "annotation_type_declaration" {
 		return nil
 	}
@@ -281,11 +281,11 @@ func parseAnnotationTypeDeclaration(node *sitter.Node, source []byte) *info.Type
 	annotationName := nameNode.Content(source)
 
 	// Create annotation type with location information
-	annotationType := &info.Type{
+	annotationType := &graph.Type{
 		Name:       annotationName,
 		Kind:       reflect.Interface, // Annotations are interfaces in Java
 		IsExported: isNodePublic(node, source),
-		Location: &info.Location{
+		Location: &graph.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
 		},
@@ -298,7 +298,7 @@ func parseAnnotationTypeDeclaration(node *sitter.Node, source []byte) *info.Type
 }
 
 // parseFieldDeclaration extracts field information from a class
-func parseFieldDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *info.Field {
+func parseFieldDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *graph.Field {
 	if node.Type() != "field_declaration" {
 		return nil
 	}
@@ -343,7 +343,7 @@ func parseFieldDeclaration(node *sitter.Node, source []byte, importMap map[strin
 	}
 
 	// Create field with location information
-	field := &info.Field{
+	field := &graph.Field{
 		Name:       fieldName,
 		Type:       fieldType,
 		Comment:    comment.Text,
@@ -351,7 +351,7 @@ func parseFieldDeclaration(node *sitter.Node, source []byte, importMap map[strin
 		IsExported: isNodePublic(node, source),
 		IsStatic:   isStatic,
 		IsConstant: isFinal && isStatic,
-		Location: &info.Location{
+		Location: &graph.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
 		},
@@ -361,7 +361,7 @@ func parseFieldDeclaration(node *sitter.Node, source []byte, importMap map[strin
 }
 
 // parseMethodDeclaration extracts method information from a class
-func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *info.Function {
+func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[string]string) *graph.Function {
 	if node.Type() != "method_declaration" {
 		return nil
 	}
@@ -375,7 +375,7 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 
 	// Get return type
 	typeNode := node.ChildByFieldName("type")
-	var returnType *info.Type
+	var returnType *graph.Type
 	if typeNode != nil {
 		returnType = parseJavaType(typeNode, source, importMap)
 	}
@@ -400,15 +400,15 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 	}
 
 	// Create method with location information
-	method := &info.Function{
+	method := &graph.Function{
 		Name:       methodName,
 		Comment:    comment,
 		Annotation: annotation,
 		IsExported: isNodePublic(node, source),
-		Parameters: []*info.Parameter{},
+		Parameters: []*graph.Parameter{},
 		TypeParams: typeParams,
 		IsStatic:   isStatic,
-		Location: &info.Location{
+		Location: &graph.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
 		},
@@ -416,7 +416,7 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 	}
 
 	if returnType != nil {
-		method.Results = []*info.Parameter{
+		method.Results = []*graph.Parameter{
 			{
 				Type: returnType,
 			},
@@ -438,7 +438,7 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 					paramType := parseJavaType(paramTypeNode, source, importMap)
 					paramName := paramNameNode.Content(source)
 
-					method.Parameters = append(method.Parameters, &info.Parameter{
+					method.Parameters = append(method.Parameters, &graph.Parameter{
 						Name: paramName,
 						Type: paramType,
 					})
@@ -464,7 +464,7 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 								paramType.Kind = reflect.Slice
 							}
 
-							method.Parameters = append(method.Parameters, &info.Parameter{
+							method.Parameters = append(method.Parameters, &graph.Parameter{
 								Name: paramName,
 								Type: paramType,
 							})
@@ -478,9 +478,9 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 	// Extract method body with location information
 	bodyNode := node.ChildByFieldName("body")
 	if bodyNode != nil {
-		method.Body = &info.LocationNode{
+		method.Body = &graph.LocationNode{
 			Text: bodyNode.Content(source),
-			Location: info.Location{
+			Location: graph.Location{
 				Start: int(bodyNode.StartByte()),
 				End:   int(bodyNode.EndByte()),
 			},
@@ -491,7 +491,7 @@ func parseMethodDeclaration(node *sitter.Node, source []byte, importMap map[stri
 }
 
 // parseConstructorDeclaration extracts constructor information from a class
-func parseConstructorDeclaration(node *sitter.Node, source []byte, className string, importMap map[string]string) *info.Function {
+func parseConstructorDeclaration(node *sitter.Node, source []byte, className string, importMap map[string]string) *graph.Function {
 	if node.Type() != "constructor_declaration" {
 		return nil
 	}
@@ -512,15 +512,15 @@ func parseConstructorDeclaration(node *sitter.Node, source []byte, className str
 	typeParams := extractTypeParameters(node, source)
 
 	// Create constructor method with location information
-	constructor := &info.Function{
+	constructor := &graph.Function{
 		Name:          className,
 		Comment:       comment,
 		Annotation:    annotation,
 		IsExported:    isNodePublic(node, source),
-		Parameters:    []*info.Parameter{},
+		Parameters:    []*graph.Parameter{},
 		TypeParams:    typeParams,
 		IsConstructor: true,
-		Location: &info.Location{
+		Location: &graph.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
 		},
@@ -528,9 +528,9 @@ func parseConstructorDeclaration(node *sitter.Node, source []byte, className str
 	}
 
 	// Constructors return the class type
-	constructor.Results = []*info.Parameter{
+	constructor.Results = []*graph.Parameter{
 		{
-			Type: &info.Type{
+			Type: &graph.Type{
 				Name: className,
 			},
 		},
@@ -550,7 +550,7 @@ func parseConstructorDeclaration(node *sitter.Node, source []byte, className str
 					paramType := parseJavaType(paramTypeNode, source, importMap)
 					paramName := paramNameNode.Content(source)
 
-					constructor.Parameters = append(constructor.Parameters, &info.Parameter{
+					constructor.Parameters = append(constructor.Parameters, &graph.Parameter{
 						Name: paramName,
 						Type: paramType,
 					})
@@ -562,9 +562,9 @@ func parseConstructorDeclaration(node *sitter.Node, source []byte, className str
 	// Extract constructor body with location information
 	bodyNode := node.ChildByFieldName("body")
 	if bodyNode != nil {
-		constructor.Body = &info.LocationNode{
+		constructor.Body = &graph.LocationNode{
 			Text: bodyNode.Content(source),
-			Location: info.Location{
+			Location: graph.Location{
 				Start: int(bodyNode.StartByte()),
 				End:   int(bodyNode.EndByte()),
 			},

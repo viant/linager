@@ -1,10 +1,8 @@
-package info
+package graph
 
 import (
 	"context"
 	"fmt"
-	"github.com/viant/afs"
-	"path"
 	"strings"
 )
 
@@ -283,7 +281,6 @@ func (d *Document) HashContent() uint64 {
 // CreateDocuments creates Document instances for embedding from a project
 func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Documents, error) {
 	var documents Documents
-	fs := afs.New()
 
 	for _, pkg := range p.Packages {
 
@@ -321,16 +318,11 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 
 		var typeFields = map[string]int{}
 		for _, file := range pkg.FileSet {
-			location := path.Join(p.RootPath, file.Path)
-			source, err := fs.DownloadWithURL(ctx, location)
-			if err != nil {
-				return nil, err
-			}
 			// Process constants
 			for _, constant := range file.Constants {
 				content := ""
 				if constant.Location != nil {
-					content = string(source[constant.Location.Start:constant.Location.End])
+					content = constant.Location.Raw
 				}
 
 				doc := &Document{
@@ -349,7 +341,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 			for _, variable := range file.Variables {
 				content := variable.Value
 				if variable.Location != nil {
-					content = string(source[variable.Location.Start:variable.Location.End])
+					content = variable.Location.Raw
 				}
 
 				typeName := ""
@@ -380,7 +372,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 						Path:      file.Path,
 						Signature: function.Signature,
 						Name:      function.Name,
-						Content:   function.Content(source),
+						Content:   function.Content(),
 					}
 					doc.Hash = doc.HashContent()
 					documents.Append(doc)
@@ -393,7 +385,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 
 				if len(aType.Fields) > 0 {
 					// Pure type (type declaration)
-					content := aType.Content(source)
+					content := aType.Content()
 					doc := &Document{
 						Kind:    KindType,
 						Project: p.Name,
@@ -409,7 +401,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 				if len(aType.Fields) > 0 {
 					for _, field := range aType.Fields {
 						if field.Location != nil {
-							fieldContent := field.Content(source)
+							fieldContent := field.Content()
 
 							// Individual field
 							fieldDoc := &Document{
@@ -436,7 +428,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 						Path:      file.Path,
 						Type:      aType.Name,
 						Signature: method.Signature,
-						Content:   method.Content(source),
+						Content:   method.Content(),
 					}
 					methodDoc.Hash = methodDoc.HashContent()
 					documents.Append(methodDoc)
@@ -451,7 +443,7 @@ func (p *Project) CreateDocuments(ctx context.Context, pkgPath string) (Document
 					continue
 				}
 				// Pure type (type declaration)
-				content := aType.Content(source)
+				content := aType.Content()
 				doc := &Document{
 					Kind:    KindType,
 					Project: p.Name,

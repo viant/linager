@@ -2,7 +2,7 @@ package golang
 
 import (
 	"bytes"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"go/ast"
 	"go/printer"
 	"go/token"
@@ -11,7 +11,7 @@ import (
 )
 
 // InspectDeclaration inspects a declaration and returns type information
-func (i *Inspector) InspectDeclaration(decl ast.Decl, importMap map[string]string) ([]*info.Type, error) {
+func (i *Inspector) InspectDeclaration(decl ast.Decl, importMap map[string]string) ([]*graph.Type, error) {
 	switch d := decl.(type) {
 	case *ast.GenDecl:
 		return i.inspectGenDecl(d, importMap)
@@ -23,8 +23,8 @@ func (i *Inspector) InspectDeclaration(decl ast.Decl, importMap map[string]strin
 }
 
 // inspectGenDecl handles type declarations, vars, consts, and imports
-func (i *Inspector) inspectGenDecl(decl *ast.GenDecl, importMap map[string]string) ([]*info.Type, error) {
-	var types []*info.Type
+func (i *Inspector) inspectGenDecl(decl *ast.GenDecl, importMap map[string]string) ([]*graph.Type, error) {
+	var types []*graph.Type
 
 	switch decl.Tok {
 	case token.TYPE: // Changed from ast.TYPE to token.TYPE
@@ -49,26 +49,26 @@ func (i *Inspector) inspectGenDecl(decl *ast.GenDecl, importMap map[string]strin
 }
 
 // inspectFuncDecl handles function and method declarations
-func (i *Inspector) inspectFuncDecl(decl *ast.FuncDecl) ([]*info.Type, error) {
+func (i *Inspector) inspectFuncDecl(decl *ast.FuncDecl) ([]*graph.Type, error) {
 	// We don't create types for standalone functions
 	// Methods are handled separately when processing types
 	return nil, nil
 }
 
 // processTypeSpec converts an ast.TypeSpec to our Type
-func (i *Inspector) processTypeSpec(ts *ast.TypeSpec, typeSpecDoc, genDeclDoc *ast.CommentGroup, importMap map[string]string) *info.Type {
+func (i *Inspector) processTypeSpec(ts *ast.TypeSpec, typeSpecDoc, genDeclDoc *ast.CommentGroup, importMap map[string]string) *graph.Type {
 	// Extract comments - prioritize TypeSpec doc comment over GenDecl doc comment
 	comment := ""
-	var commentLocation info.Location
+	var commentLocation graph.Location
 	if typeSpecDoc != nil {
 		comment = typeSpecDoc.Text()
-		commentLocation = info.Location{
+		commentLocation = graph.Location{
 			Start: i.fset.Position(typeSpecDoc.Pos()).Offset,
 			End:   i.fset.Position(typeSpecDoc.End()).Offset,
 		}
 	} else if genDeclDoc != nil {
 		comment = genDeclDoc.Text()
-		commentLocation = info.Location{
+		commentLocation = graph.Location{
 			Start: i.fset.Position(genDeclDoc.Pos()).Offset,
 			End:   i.fset.Position(genDeclDoc.End()).Offset,
 		}
@@ -77,15 +77,15 @@ func (i *Inspector) processTypeSpec(ts *ast.TypeSpec, typeSpecDoc, genDeclDoc *a
 	typeKind := determineTypeKind(ts)
 
 	// Create location information for the type
-	typeLocation := &info.Location{
+	typeLocation := &graph.Location{
 		Start: i.fset.Position(ts.Pos()).Offset,
 		End:   i.fset.Position(ts.End()).Offset,
 	}
 
-	t := &info.Type{
+	t := &graph.Type{
 		Name:       ts.Name.Name,
 		Kind:       kindFromString(typeKind),
-		Comment:    &info.LocationNode{Text: strings.TrimSpace(comment), Location: commentLocation},
+		Comment:    &graph.LocationNode{Text: strings.TrimSpace(comment), Location: commentLocation},
 		IsExported: ts.Name.IsExported(),
 		TypeParams: extractTypeParams(ts.TypeParams, importMap),
 		Location:   typeLocation,
@@ -137,33 +137,33 @@ func extractFieldDocumentation(field *ast.Field) string {
 }
 
 // processMethod converts an ast.FuncDecl to our Functions
-func (i *Inspector) processMethod(funcDecl *ast.FuncDecl, importMap map[string]string) *info.Function {
+func (i *Inspector) processMethod(funcDecl *ast.FuncDecl, importMap map[string]string) *graph.Function {
 	recvField := funcDecl.Recv.List[0]
 	recvTypeStr := exprToString(recvField.Type, importMap)
 	method := i.processFunction(funcDecl, importMap, recvTypeStr)
 	return method
 }
 
-func (i *Inspector) processFunction(funcDecl *ast.FuncDecl, importMap map[string]string, recvTypeStr string) *info.Function {
+func (i *Inspector) processFunction(funcDecl *ast.FuncDecl, importMap map[string]string, recvTypeStr string) *graph.Function {
 	comment := ""
-	var commentLocation info.Location
+	var commentLocation graph.Location
 	if funcDecl.Doc != nil {
 		comment = funcDecl.Doc.Text()
-		commentLocation = info.Location{
+		commentLocation = graph.Location{
 			Start: i.fset.Position(funcDecl.Doc.Pos()).Offset,
 			End:   i.fset.Position(funcDecl.Doc.End()).Offset,
 		}
 	}
 
 	// Create method location information
-	methodLocation := &info.Location{
+	methodLocation := &graph.Location{
 		Start: i.fset.Position(funcDecl.Pos()).Offset,
 		End:   i.fset.Position(funcDecl.End()).Offset,
 	}
 
-	method := &info.Function{
+	method := &graph.Function{
 		Name:       funcDecl.Name.Name,
-		Comment:    &info.LocationNode{Text: strings.TrimSpace(comment), Location: commentLocation},
+		Comment:    &graph.LocationNode{Text: strings.TrimSpace(comment), Location: commentLocation},
 		Receiver:   recvTypeStr,
 		TypeParams: extractTypeParams(funcDecl.Type.TypeParams, importMap),
 		IsExported: funcDecl.Name.IsExported(),
@@ -174,17 +174,17 @@ func (i *Inspector) processFunction(funcDecl *ast.FuncDecl, importMap map[string
 	// Process parameters
 	if funcDecl.Type.Params != nil {
 		for _, p := range funcDecl.Type.Params.List {
-			paramType := &info.Type{
+			paramType := &graph.Type{
 				Name: exprToString(p.Type, importMap),
 			}
 
 			if len(p.Names) == 0 {
-				method.Parameters = append(method.Parameters, &info.Parameter{
+				method.Parameters = append(method.Parameters, &graph.Parameter{
 					Type: paramType,
 				})
 			} else {
 				for _, name := range p.Names {
-					method.Parameters = append(method.Parameters, &info.Parameter{
+					method.Parameters = append(method.Parameters, &graph.Parameter{
 						Name: name.Name,
 						Type: paramType,
 					})
@@ -196,17 +196,17 @@ func (i *Inspector) processFunction(funcDecl *ast.FuncDecl, importMap map[string
 	// Process results
 	if funcDecl.Type.Results != nil {
 		for _, r := range funcDecl.Type.Results.List {
-			resultType := &info.Type{
+			resultType := &graph.Type{
 				Name: exprToString(r.Type, importMap),
 			}
 
 			if len(r.Names) == 0 {
-				method.Results = append(method.Results, &info.Parameter{
+				method.Results = append(method.Results, &graph.Parameter{
 					Type: resultType,
 				})
 			} else {
 				for _, name := range r.Names {
-					method.Results = append(method.Results, &info.Parameter{
+					method.Results = append(method.Results, &graph.Parameter{
 						Name: name.Name,
 						Type: resultType,
 					})
@@ -221,13 +221,13 @@ func (i *Inspector) processFunction(funcDecl *ast.FuncDecl, importMap map[string
 		var buf bytes.Buffer
 		err := printer.Fprint(&buf, i.fset, funcDecl.Body)
 
-		bodyLocation := info.Location{
+		bodyLocation := graph.Location{
 			Start: i.fset.Position(funcDecl.Body.Pos()).Offset,
 			End:   i.fset.Position(funcDecl.Body.End()).Offset,
 		}
 
 		if err == nil {
-			method.Body = &info.LocationNode{
+			method.Body = &graph.LocationNode{
 				Text:     buf.String(),
 				Location: bodyLocation,
 			}
@@ -243,9 +243,9 @@ func (i *Inspector) processFunction(funcDecl *ast.FuncDecl, importMap map[string
 					bodyEndOffset := bodyEnd.Offset + 1 // Include the closing brace
 
 					if bodyEndOffset <= len(fileBytes) && bodyStartOffset < bodyEndOffset {
-						method.Body = &info.LocationNode{
+						method.Body = &graph.LocationNode{
 							Text: string(fileBytes[bodyStartOffset:bodyEndOffset]),
-							Location: info.Location{
+							Location: graph.Location{
 								Start: bodyStartOffset,
 								End:   bodyEndOffset,
 							},

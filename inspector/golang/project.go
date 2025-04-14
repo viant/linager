@@ -1,14 +1,14 @@
 package golang
 
 import (
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"github.com/viant/linager/inspector/repository"
 )
 
 // InspectProject parses a Go source file and extracts types
-func (i *Inspector) InspectProject(location string) (*info.Project, error) {
+func (i *Inspector) InspectProject(location string) (*graph.Project, error) {
 	detector := repository.New()
-	project := &info.Project{}
+	project := &graph.Project{}
 	if info, err := detector.DetectProject(location); err == nil {
 		project.Name = info.Name
 		project.Type = info.Type

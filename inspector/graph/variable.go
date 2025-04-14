@@ -1,4 +1,4 @@
-package info
+package graph
 
 type Variable struct {
 	Name       string

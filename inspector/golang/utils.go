@@ -2,7 +2,7 @@ package golang
 
 import (
 	"fmt"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"go/ast"
 	"go/token"
 	"os"
@@ -179,15 +179,15 @@ func isDigit(r rune) bool {
 }
 
 // extractTypeParams extracts type parameters from an ast.FieldList
-func extractTypeParams(params *ast.FieldList, importMap map[string]string) []*info.TypeParam {
+func extractTypeParams(params *ast.FieldList, importMap map[string]string) []*graph.TypeParam {
 	if params == nil {
 		return nil
 	}
 
-	var result []*info.TypeParam
+	var result []*graph.TypeParam
 	for _, param := range params.List {
 		for _, name := range param.Names {
-			typeParam := &info.TypeParam{
+			typeParam := &graph.TypeParam{
 				Name:       name.Name,
 				Constraint: exprToString(param.Type, importMap),
 			}

@@ -2,7 +2,7 @@ package golang
 
 import (
 	"fmt"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"go/ast"
 	"go/parser"
 	"go/printer"
@@ -16,14 +16,14 @@ import (
 // Inspector provides functionality to inspect Go code and extract type information
 type Inspector struct {
 	fset   *token.FileSet
-	config *info.Config
+	config *graph.Config
 	src    []byte // Store source for method body extraction
 }
 
 // Config holds configuration options for the Inspector
 
 // NewInspector creates a new Inspector with the provided configuration
-func NewInspector(config *info.Config) *Inspector {
+func NewInspector(config *graph.Config) *Inspector {
 	return &Inspector{
 		fset:   token.NewFileSet(),
 		config: config,
@@ -33,7 +33,7 @@ func NewInspector(config *info.Config) *Inspector {
 const defaultFilename = "source.go"
 
 // InspectSource parses Go source code from a byte slice and extracts types
-func (i *Inspector) InspectSource(src []byte) (*info.File, error) {
+func (i *Inspector) InspectSource(src []byte) (*graph.File, error) {
 	filename := defaultFilename
 	i.src = src // Store source for method body extraction
 	file, err := parser.ParseFile(i.fset, filename, src, parser.ParseComments)
@@ -45,7 +45,7 @@ func (i *Inspector) InspectSource(src []byte) (*info.File, error) {
 }
 
 // InspectFile parses a Go source file and extracts types
-func (i *Inspector) InspectFile(filename string) (*info.File, error) {
+func (i *Inspector) InspectFile(filename string) (*graph.File, error) {
 	// Read file content
 	src, err := os.ReadFile(filename)
 	if err != nil {
@@ -177,24 +177,24 @@ func (i *Inspector) GetFileWithFunction(filename, funcName, receiverType, receiv
 }
 
 // processFile extracts type information from an AST file
-func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, error) {
+func (i *Inspector) processFile(file *ast.File, filename string) (*graph.File, error) {
 	// Reset and rebuild import map for this file
 	importMap := buildImportMap(file)
 
 	// Get imports from the file
 	imports := ParseImports(file)
 
-	// Create the File structure with import information
-	infoFile := &info.File{
+	// Create the File graph with import information
+	infoFile := &graph.File{
 		Name:    filepath.Base(filename),
 		Path:    filename,
 		Package: file.Name.Name,
-		Imports: make([]info.Import, len(imports)),
+		Imports: make([]graph.Import, len(imports)),
 	}
 
 	// Convert inspector's import specs to info.Import objects
 	for i, imp := range imports {
-		infoFile.Imports[i] = info.Import{
+		infoFile.Imports[i] = graph.Import{
 			Name: imp.Name,
 			Path: imp.Path,
 		}
@@ -224,7 +224,7 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 	typeMap := make(map[string]*ast.TypeSpec)
 	var typeOrder []string
 	docMap := make(map[string]*ast.CommentGroup) // Map to store doc comments for type specs
-	locMap := make(map[string]*info.Location)    // Map to store locations for type specs
+	locMap := make(map[string]*graph.Location)   // Map to store locations for type specs
 
 	// First pass: collect all type specs and their associated comments
 	for _, decl := range file.Decls {
@@ -264,7 +264,7 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 			// Store location information
 			pos := i.fset.Position(ts.Pos())
 			end := i.fset.Position(ts.End())
-			locMap[ts.Name.Name] = &info.Location{
+			locMap[ts.Name.Name] = &graph.Location{
 				Start: pos.Offset,
 				End:   end.Offset,
 			}
@@ -272,14 +272,14 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 	}
 
 	// Create type info objects
-	var types []*info.Type
+	var types []*graph.Type
 
 	// Second pass: process each type
 	for _, typeName := range typeOrder {
 		ts := typeMap[typeName]
 
 		// Create a new Type without relying on processTypeSpec
-		t := &info.Type{
+		t := &graph.Type{
 			Name:       ts.Name.Name,
 			IsExported: ts.Name.IsExported(),
 			Location:   locMap[typeName], // Add location information
@@ -288,9 +288,9 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 		// Set comment from docMap if available
 		if doc, ok := docMap[typeName]; ok {
 			commentText := strings.TrimSpace(doc.Text())
-			t.Comment = &info.LocationNode{
+			t.Comment = &graph.LocationNode{
 				Text: commentText,
-				Location: info.Location{
+				Location: graph.Location{
 					Start: i.fset.Position(doc.Pos()).Offset,
 					End:   i.fset.Position(doc.End()).Offset,
 				},
@@ -341,7 +341,7 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 	infoFile.Types = types
 
 	// Collect receiver types from methods
-	receiverTypes := make(map[string]*info.Type)
+	receiverTypes := make(map[string]*graph.Type)
 
 	// Third pass: collect methods and create types for receivers if they don't exist
 	for _, decl := range file.Decls {
@@ -364,7 +364,7 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 		baseTypeName := extractBaseTypeName(recvTypeStr)
 
 		// Find existing type or create a new one if not found
-		var targetType *info.Type
+		var targetType *graph.Type
 
 		// Look through existing types first
 		for _, t := range types {
@@ -380,10 +380,10 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 				targetType = t
 			} else {
 				// Create a new type based on the receiver
-				targetType = &info.Type{
+				targetType = &graph.Type{
 					Name:       baseTypeName,
 					IsExported: true, // Assume exported since we have an exported method on it
-					Methods:    []*info.Function{},
+					Methods:    []*graph.Function{},
 					// We don't know the kind yet, but we can assume it's a struct most of the time
 					Kind: reflect.Struct,
 				}
@@ -402,7 +402,7 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*info.File, er
 }
 
 // processTypeDetails extracts additional type information based on the specific type
-func (i *Inspector) processTypeDetails(ts *ast.TypeSpec, t *info.Type, importMap map[string]string) {
+func (i *Inspector) processTypeDetails(ts *ast.TypeSpec, t *graph.Type, importMap map[string]string) {
 	switch typeExpr := ts.Type.(type) {
 	case *ast.StructType:
 		t.Kind = reflect.Struct

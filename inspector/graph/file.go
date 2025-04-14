@@ -1,4 +1,4 @@
-package info
+package graph
 
 // File represents a source code file with its types and symbols
 type File struct {

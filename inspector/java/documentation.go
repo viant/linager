@@ -2,17 +2,17 @@ package java
 
 import (
 	sitter "github.com/smacker/go-tree-sitter"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"strings"
 )
 
 // extractDocumentation extracts documentation comments from a node's modifiers
 // and returns separate comment and annotation strings along with their locations
-func extractDocumentation(node *sitter.Node, source []byte) (*info.LocationNode, *info.LocationNode) {
+func extractDocumentation(node *sitter.Node, source []byte) (*graph.LocationNode, *graph.LocationNode) {
 	var comments []string
 	var annotations []string
-	var commentLocation info.Location
-	var annotationLocation info.Location
+	var commentLocation graph.Location
+	var annotationLocation graph.Location
 
 	// Check if the node has leading comments (Javadoc style)
 	// Extract comments that appear before the node
@@ -82,12 +82,12 @@ func extractDocumentation(node *sitter.Node, source []byte) (*info.LocationNode,
 		}
 	}
 
-	commentNode := &info.LocationNode{
+	commentNode := &graph.LocationNode{
 		Text:     strings.Join(comments, "\n"),
 		Location: commentLocation,
 	}
 
-	annotationNode := &info.LocationNode{
+	annotationNode := &graph.LocationNode{
 		Text:     strings.Join(annotations, "\n"),
 		Location: annotationLocation,
 	}

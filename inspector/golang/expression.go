@@ -1,14 +1,14 @@
 package golang
 
 import (
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"go/ast"
 	"go/token"
 	"reflect"
 )
 
 // InspectExpression inspects an AST expression and returns type information
-func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string) (*info.Type, error) {
+func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string) (*graph.Type, error) {
 	if expr == nil {
 		return nil, nil
 	}
@@ -17,17 +17,17 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 	case *ast.Ident:
 		// Basic identifier
 		if e.Name == "nil" {
-			return &info.Type{Name: "nil", Kind: reflect.Invalid}, nil
+			return &graph.Type{Name: "nil", Kind: reflect.Invalid}, nil
 		}
 
 		// Check if it's a built-in type
 		kind := kindFromBasicType(e.Name)
 		if kind != reflect.Invalid {
-			return &info.Type{Name: e.Name, Kind: kind}, nil
+			return &graph.Type{Name: e.Name, Kind: kind}, nil
 		}
 
 		// Might be a reference to another type or variable
-		return &info.Type{
+		return &graph.Type{
 			Name:       e.Name,
 			IsExported: e.IsExported(),
 		}, nil
@@ -41,7 +41,7 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 
 		pkgPath, ok := importMap[pkgName.Name]
 		if ok {
-			return &info.Type{
+			return &graph.Type{
 				Name:        e.Sel.Name,
 				Package:     pkgName.Name,
 				PackagePath: pkgPath,
@@ -49,7 +49,7 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 			}, nil
 		}
 
-		return &info.Type{
+		return &graph.Type{
 			Name:       e.Sel.Name,
 			IsExported: e.Sel.IsExported(),
 		}, nil
@@ -65,7 +65,7 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 			return nil, nil
 		}
 
-		return &info.Type{
+		return &graph.Type{
 			Name:          "*" + baseType.Name,
 			Kind:          reflect.Ptr,
 			IsPointer:     true,
@@ -85,14 +85,14 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 
 		if e.Len == nil {
 			// Slice
-			return &info.Type{
+			return &graph.Type{
 				Name:          "[]" + elemType.Name,
 				Kind:          reflect.Slice,
 				ComponentType: elemType.Name,
 			}, nil
 		} else {
 			// Array
-			return &info.Type{
+			return &graph.Type{
 				Name:          "[N]" + elemType.Name,
 				Kind:          reflect.Array,
 				ComponentType: elemType.Name,
@@ -115,7 +115,7 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 			return nil, nil
 		}
 
-		return &info.Type{
+		return &graph.Type{
 			Name:          "map[" + keyType.Name + "]" + valType.Name,
 			Kind:          reflect.Map,
 			KeyType:       keyType.Name,
@@ -143,7 +143,7 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 			dirPrefix = "chan "
 		}
 
-		return &info.Type{
+		return &graph.Type{
 			Name:          dirPrefix + valType.Name,
 			Kind:          reflect.Chan,
 			ComponentType: valType.Name,
@@ -151,21 +151,21 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 
 	case *ast.InterfaceType:
 		// Interface type
-		return &info.Type{
+		return &graph.Type{
 			Name: "interface{}",
 			Kind: reflect.Interface,
 		}, nil
 
 	case *ast.StructType:
 		// Anonymous struct
-		return &info.Type{
+		return &graph.Type{
 			Name: "struct{}",
 			Kind: reflect.Struct,
 		}, nil
 
 	case *ast.FuncType:
 		// Functions type
-		return &info.Type{
+		return &graph.Type{
 			Name: "func()",
 			Kind: reflect.Func,
 		}, nil
@@ -174,15 +174,15 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 		// Literal values
 		switch e.Kind {
 		case token.INT:
-			return &info.Type{Name: "int", Kind: reflect.Int}, nil
+			return &graph.Type{Name: "int", Kind: reflect.Int}, nil
 		case token.FLOAT:
-			return &info.Type{Name: "float64", Kind: reflect.Float64}, nil
+			return &graph.Type{Name: "float64", Kind: reflect.Float64}, nil
 		case token.IMAG:
-			return &info.Type{Name: "complex128", Kind: reflect.Complex128}, nil
+			return &graph.Type{Name: "complex128", Kind: reflect.Complex128}, nil
 		case token.CHAR:
-			return &info.Type{Name: "rune", Kind: reflect.Int32}, nil
+			return &graph.Type{Name: "rune", Kind: reflect.Int32}, nil
 		case token.STRING:
-			return &info.Type{Name: "string", Kind: reflect.String}, nil
+			return &graph.Type{Name: "string", Kind: reflect.String}, nil
 		}
 
 	case *ast.CallExpr:
@@ -191,15 +191,15 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 			// Type conversions for basic types
 			kind := kindFromBasicType(ident.Name)
 			if kind != reflect.Invalid {
-				return &info.Type{Name: ident.Name, Kind: kind}, nil
+				return &graph.Type{Name: ident.Name, Kind: kind}, nil
 			}
 		}
 
 		// For other function calls, it's hard to determine the return type
 		// without more semantic analysis
-		return &info.Type{Name: "any", Kind: reflect.Interface}, nil
+		return &graph.Type{Name: "any", Kind: reflect.Interface}, nil
 	}
 
 	// For other expressions, we can't determine the type easily
-	return &info.Type{Name: "unknown", Kind: reflect.Invalid}, nil
+	return &graph.Type{Name: "unknown", Kind: reflect.Invalid}, nil
 }

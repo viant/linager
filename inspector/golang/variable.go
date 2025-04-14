@@ -1,15 +1,15 @@
 package golang
 
 import (
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"go/ast"
 	"go/token"
 	"strings"
 )
 
 // InspectVariables inspects an AST file to extract variables
-func (i *Inspector) InspectVariables(file *ast.File, importMap map[string]string) ([]*info.Variable, error) {
-	var variables []*info.Variable
+func (i *Inspector) InspectVariables(file *ast.File, importMap map[string]string) ([]*graph.Variable, error) {
+	var variables []*graph.Variable
 
 	// Iterate through all declarations
 	for _, decl := range file.Decls {
@@ -47,11 +47,11 @@ func (i *Inspector) InspectVariables(file *ast.File, importMap map[string]string
 					continue
 				}
 
-				var varType *info.Type
+				var varType *graph.Type
 				if valueSpec.Type != nil {
 					typeName := exprToString(valueSpec.Type, importMap)
 					kind := kindFromBasicType(typeName)
-					varType = &info.Type{
+					varType = &graph.Type{
 						Name: typeName,
 						Kind: kind,
 					}
@@ -63,7 +63,7 @@ func (i *Inspector) InspectVariables(file *ast.File, importMap map[string]string
 					value = extractValueAsString(valueSpec.Values[idx], i.fset)
 				}
 
-				variables = append(variables, &info.Variable{
+				variables = append(variables, &graph.Variable{
 					Name:    name.Name,
 					Comment: varComment,
 					Value:   value,

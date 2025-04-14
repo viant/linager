@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/viant/linager/inspector/golang"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"reflect"
 	"testing"
 )
@@ -13,7 +13,7 @@ func TestInspector_InspectSource(t *testing.T) {
 	tests := []struct {
 		name    string
 		src     string
-		want    []*info.Type
+		want    []*graph.Type
 		wantErr bool
 	}{
 		{
@@ -25,28 +25,28 @@ func TestInspector_InspectSource(t *testing.T) {
 				Name string ` + "`json:\"name\"`" + ` // Person's name
 				Age  int    ` + "`json:\"age\"`" + `  // Person's age
 			}`,
-			want: []*info.Type{
+			want: []*graph.Type{
 				{
 					Name:    "Person",
 					Kind:    reflect.Struct,
-					Comment: &info.LocationNode{Text: "Person represents a human"},
-					Fields: []*info.Field{
+					Comment: &graph.LocationNode{Text: "Person represents a human"},
+					Fields: []*graph.Field{
 						{
 							Name:       "Name",
-							Type:       &info.Type{Name: "string"},
+							Type:       &graph.Type{Name: "string"},
 							Tag:        reflect.StructTag(`json:"name"`),
 							Comment:    "Person's name",
 							IsExported: true,
 						},
 						{
 							Name:       "Age",
-							Type:       &info.Type{Name: "int"},
+							Type:       &graph.Type{Name: "int"},
 							Tag:        reflect.StructTag(`json:"age"`),
 							Comment:    "Person's age",
 							IsExported: true,
 						},
 					},
-					Location:   &info.Location{},
+					Location:   &graph.Location{},
 					Package:    "test",
 					IsExported: true,
 				},
@@ -62,26 +62,26 @@ func TestInspector_InspectSource(t *testing.T) {
 				Items []T
 				Size  int
 			}`,
-			want: []*info.Type{
+			want: []*graph.Type{
 				{
 					Name:    "List",
 					Kind:    reflect.Struct,
-					Comment: &info.LocationNode{Text: "List is a generic list implementation"},
-					TypeParams: []*info.TypeParam{
+					Comment: &graph.LocationNode{Text: "List is a generic list implementation"},
+					TypeParams: []*graph.TypeParam{
 						{
 							Name:       "T",
 							Constraint: "any",
 						},
 					},
-					Fields: []*info.Field{
+					Fields: []*graph.Field{
 						{
 							Name:       "Items",
-							Type:       &info.Type{Name: "[]T"},
+							Type:       &graph.Type{Name: "[]T"},
 							IsExported: true,
 						},
 						{
 							Name:       "Size",
-							Type:       &info.Type{Name: "int"},
+							Type:       &graph.Type{Name: "int"},
 							IsExported: true,
 						},
 					},
@@ -108,42 +108,42 @@ func TestInspector_InspectSource(t *testing.T) {
 			func (c Counter) Value() int {
 				return c.value
 			}`,
-			want: []*info.Type{
+			want: []*graph.Type{
 				{
 					Name: "Counter",
 					Kind: reflect.Struct,
-					Fields: []*info.Field{
+					Fields: []*graph.Field{
 						{
 							Name:       "value",
-							Type:       &info.Type{Name: "int"},
+							Type:       &graph.Type{Name: "int"},
 							IsExported: false,
 						},
 					},
 					Package:    "test",
 					IsExported: true,
-					Methods: []*info.Function{
+					Methods: []*graph.Function{
 						{
 							Name:       "Increment",
 							Receiver:   "*Counter",
-							Comment:    &info.LocationNode{Text: "Increment adds the given amount to the counter"},
+							Comment:    &graph.LocationNode{Text: "Increment adds the given amount to the counter"},
 							IsExported: true,
-							Parameters: []*info.Parameter{
+							Parameters: []*graph.Parameter{
 								{
 									Name: "amount",
-									Type: &info.Type{Name: "int"},
+									Type: &graph.Type{Name: "int"},
 								},
 							},
-							Results: []*info.Parameter{},
+							Results: []*graph.Parameter{},
 						},
 						{
 							Name:       "Value",
 							Receiver:   "Counter",
-							Comment:    &info.LocationNode{Text: "Value returns the current counter value"},
+							Comment:    &graph.LocationNode{Text: "Value returns the current counter value"},
 							IsExported: true,
-							Parameters: []*info.Parameter{},
-							Results: []*info.Parameter{
+							Parameters: []*graph.Parameter{},
+							Results: []*graph.Parameter{
 								{
-									Type: &info.Type{Name: "int"},
+									Type: &graph.Type{Name: "int"},
 								},
 							},
 						},
@@ -161,11 +161,11 @@ func TestInspector_InspectSource(t *testing.T) {
 				// Write writes data to the underlying data store
 				Write(data []byte) (int, error)
 			}`,
-			want: []*info.Type{
+			want: []*graph.Type{
 				{
 					Name:       "Writer",
 					Kind:       reflect.Interface,
-					Comment:    &info.LocationNode{Text: "Writer is an interface for objects that can be written to"},
+					Comment:    &graph.LocationNode{Text: "Writer is an interface for objects that can be written to"},
 					Package:    "test",
 					IsExported: true,
 				},
@@ -182,20 +182,20 @@ func TestInspector_InspectSource(t *testing.T) {
 				io.Reader
 				buf []byte
 			}`,
-			want: []*info.Type{
+			want: []*graph.Type{
 				{
 					Name:    "MyReader",
 					Kind:    reflect.Struct,
 					Package: "test",
-					Fields: []*info.Field{
+					Fields: []*graph.Field{
 						{
-							Type:       &info.Type{Name: "io.Reader"},
+							Type:       &graph.Type{Name: "io.Reader"},
 							IsEmbedded: true,
 							IsExported: true,
 						},
 						{
 							Name:       "buf",
-							Type:       &info.Type{Name: "[]byte"},
+							Type:       &graph.Type{Name: "[]byte"},
 							IsExported: false,
 						},
 					},
@@ -210,11 +210,11 @@ func TestInspector_InspectSource(t *testing.T) {
 			
 			// UserID is a type alias for string
 			type UserID string`,
-			want: []*info.Type{
+			want: []*graph.Type{
 				{
 					Name:       "UserID",
 					Kind:       reflect.String, // Placeholder for alias
-					Comment:    &info.LocationNode{Text: "UserID is a type alias for string"},
+					Comment:    &graph.LocationNode{Text: "UserID is a type alias for string"},
 					Package:    "test",
 					IsExported: true,
 				},
@@ -225,7 +225,7 @@ func TestInspector_InspectSource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := golang.NewInspector(&info.Config{IncludeUnexported: true})
+			i := golang.NewInspector(&graph.Config{IncludeUnexported: true})
 			infoFile, err := i.InspectSource([]byte(tt.src))
 
 			if (err != nil) != tt.wantErr {

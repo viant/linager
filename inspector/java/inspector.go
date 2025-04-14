@@ -10,20 +10,20 @@ import (
 
 	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/smacker/go-tree-sitter/java"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 )
 
 // Inspector provides functionality to inspect Java code and extract type information
 type Inspector struct {
-	config    *info.Config
+	config    *graph.Config
 	importMap map[string]string
 	source    []byte
 }
 
 // NewInspector creates a new Java Inspector with the provided configuration
-func NewInspector(config *info.Config) *Inspector {
+func NewInspector(config *graph.Config) *Inspector {
 	if config == nil {
-		config = &info.Config{
+		config = &graph.Config{
 			IncludeUnexported: true,
 			SkipTests:         false,
 			RecursivePackages: false,
@@ -35,7 +35,7 @@ func NewInspector(config *info.Config) *Inspector {
 }
 
 // InspectSource parses Java source code from a byte slice and extracts types
-func (i *Inspector) InspectSource(src []byte) (*info.File, error) {
+func (i *Inspector) InspectSource(src []byte) (*graph.File, error) {
 	i.source = src
 
 	parser := sitter.NewParser()
@@ -52,7 +52,7 @@ func (i *Inspector) InspectSource(src []byte) (*info.File, error) {
 }
 
 // InspectFile parses a Java source file and extracts types
-func (i *Inspector) InspectFile(filename string) (*info.File, error) {
+func (i *Inspector) InspectFile(filename string) (*graph.File, error) {
 	src, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", filename, err)
@@ -79,7 +79,7 @@ func (i *Inspector) InspectFile(filename string) (*info.File, error) {
 	for _, importNode := range findImportNodes(rootNode) {
 		imports := parseImportDeclarations(importNode, src)
 		for name, path := range imports {
-			aFile.Imports = append(aFile.Imports, info.Import{
+			aFile.Imports = append(aFile.Imports, graph.Import{
 				Name: name,
 				Path: path,
 			})
@@ -104,7 +104,7 @@ func findImportNodes(rootNode *sitter.Node) []*sitter.Node {
 }
 
 // InspectPackage inspects a Java package directory and extracts all types
-func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
+func (i *Inspector) InspectPackage(packagePath string) (*graph.Package, error) {
 	// Get the absolute path of the package
 	absPath, err := filepath.Abs(packagePath)
 	if err != nil {
@@ -113,8 +113,8 @@ func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
 
 	_, pkgName := path.Split(absPath)
 	// Create a new Package to store all discovered types
-	pkg := &info.Package{
-		FileSet: []*info.File{},
+	pkg := &graph.Package{
+		FileSet: []*graph.File{},
 		Name:    pkgName,
 	}
 
@@ -172,8 +172,8 @@ func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
 }
 
 // processJavaFile extracts package, types, constants, and variables from a Java file
-func (i *Inspector) processJavaFile(rootNode *sitter.Node, src []byte, filename string) (*info.File, error) {
-	aFile := &info.File{Path: filename}
+func (i *Inspector) processJavaFile(rootNode *sitter.Node, src []byte, filename string) (*graph.File, error) {
+	aFile := &graph.File{Path: filename}
 
 	// Find package declaration
 	var packageNode *sitter.Node
@@ -255,12 +255,12 @@ func (i *Inspector) processJavaFile(rootNode *sitter.Node, src []byte, filename 
 }
 
 // extractEnumConstants extracts enum constant values from an enum declaration
-func extractEnumConstants(node *sitter.Node, source []byte, enumName string) []*info.Constant {
+func extractEnumConstants(node *sitter.Node, source []byte, enumName string) []*graph.Constant {
 	if node.Type() != "enum_declaration" {
 		return nil
 	}
 
-	var constants []*info.Constant
+	var constants []*graph.Constant
 
 	bodyNode := node.ChildByFieldName("body")
 	if bodyNode != nil {
@@ -270,7 +270,7 @@ func extractEnumConstants(node *sitter.Node, source []byte, enumName string) []*
 				nameNode := child.ChildByFieldName("name")
 				if nameNode != nil {
 					constantName := nameNode.Content(source)
-					constants = append(constants, &info.Constant{
+					constants = append(constants, &graph.Constant{
 						Name:  constantName,
 						Value: enumName + "." + constantName,
 					})
@@ -283,8 +283,8 @@ func extractEnumConstants(node *sitter.Node, source []byte, enumName string) []*
 }
 
 // extractConstantsFromTypes extracts constants from class fields with final modifier
-func extractConstantsFromTypes(types []*info.Type) []*info.Constant {
-	var constants []*info.Constant
+func extractConstantsFromTypes(types []*graph.Type) []*graph.Constant {
+	var constants []*graph.Constant
 
 	// In Java, constants are typically final static fields
 	for _, t := range types {
@@ -293,7 +293,7 @@ func extractConstantsFromTypes(types []*info.Type) []*info.Constant {
 			// This is a simplistic approach - a proper parser would check the actual modifiers
 			if field.Comment != "" && (strings.Contains(strings.ToLower(field.Comment), "final") &&
 				strings.Contains(strings.ToLower(field.Comment), "static")) {
-				constants = append(constants, &info.Constant{
+				constants = append(constants, &graph.Constant{
 					Name:    field.Name,
 					Comment: field.Comment,
 					Value:   t.Name + "." + field.Name,
@@ -306,8 +306,8 @@ func extractConstantsFromTypes(types []*info.Type) []*info.Constant {
 }
 
 // extractVariablesFromTypes extracts variables (non-constant fields) from classes
-func extractVariablesFromTypes(types []*info.Type) []*info.Variable {
-	var variables []*info.Variable
+func extractVariablesFromTypes(types []*graph.Type) []*graph.Variable {
+	var variables []*graph.Variable
 
 	for _, t := range types {
 		for _, field := range t.Fields {
@@ -318,7 +318,7 @@ func extractVariablesFromTypes(types []*info.Type) []*info.Variable {
 			}
 
 			// Extract as variable
-			variables = append(variables, &info.Variable{
+			variables = append(variables, &graph.Variable{
 				Name:     field.Name,
 				Comment:  field.Comment,
 				Type:     field.Type,

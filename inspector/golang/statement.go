@@ -1,14 +1,14 @@
 package golang
 
 import (
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"go/ast"
 	"reflect"
 	"strings"
 )
 
 // InspectStatement inspects an AST statement and returns type information
-func (i *Inspector) InspectStatement(stmt ast.Stmt, importMap map[string]string) (*info.Type, error) {
+func (i *Inspector) InspectStatement(stmt ast.Stmt, importMap map[string]string) (*graph.Type, error) {
 	if stmt == nil {
 		return nil, nil
 	}
@@ -31,7 +31,7 @@ func (i *Inspector) InspectStatement(stmt ast.Stmt, importMap map[string]string)
 			// Type declaration
 			kind := determineTypeKindReflect(spec)
 			// Type assertion to convert interface{} to reflect.Kind
-			return &info.Type{
+			return &graph.Type{
 				Name:       spec.Name.Name,
 				Kind:       kind.(reflect.Kind),
 				IsExported: spec.Name.IsExported(),
@@ -46,7 +46,7 @@ func (i *Inspector) InspectStatement(stmt ast.Stmt, importMap map[string]string)
 					typeStr := exprToString(spec.Type, importMap)
 					kind := kindFromTypeName(typeStr)
 					// Type assertion to convert interface{} to reflect.Kind
-					return &info.Type{
+					return &graph.Type{
 						Name: typeStr,
 						Kind: kind.(reflect.Kind),
 					}, nil

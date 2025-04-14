@@ -1,4 +1,4 @@
-package info
+package graph
 
 type Constant struct {
 	Name       string

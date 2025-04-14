@@ -1,4 +1,4 @@
-package info
+package graph
 
 import (
 	"github.com/minio/highwayhash"

@@ -1,4 +1,4 @@
-package info
+package graph
 
 import (
 	"reflect"
@@ -54,24 +54,18 @@ func (f *Type) GetMethod(name string) *Function {
 }
 
 // Content returns the content of the method including its receiver, parameters, and results
-func (m *Type) Content(source []byte) string {
+func (m *Type) Content() string {
 	builder := &strings.Builder{}
 	if m.Location == nil {
 		return ""
 	}
-	start := m.Location.Start
-	if m.Comment != nil && m.Comment.Location.Start > 0 {
-		start = min(start, m.Comment.Location.Start)
-	}
-	if m.Annotation != nil && m.Annotation.Location.Start > 0 {
-		start = min(start, m.Annotation.Location.Start)
-	}
-	builder.WriteString(string(source[start:m.Location.End]))
+
+	builder.WriteString(m.Location.Raw)
 
 	for _, field := range m.Fields {
 		if field.Location != nil {
 			builder.WriteString("\n")
-			builder.WriteString(field.Content(source))
+			builder.WriteString(field.Content())
 		}
 	}
 	builder.WriteString("\n}\n")
@@ -103,15 +97,11 @@ type Field struct {
 	IsConstant bool
 }
 
-func (f *Field) Content(source []byte) string {
+func (f *Field) Content() string {
 	if f.Location == nil {
 		return ""
 	}
-	start := f.Location.Start
-	if f.Comment != "" {
-		start = min(start, f.Location.Start)
-	}
-	return string(source[start:f.Location.End])
+	return f.Location.Raw
 }
 
 // Function represents a type method
@@ -133,18 +123,11 @@ type Function struct {
 }
 
 // Content returns the content of the method including its receiver, parameters, and results
-func (m *Function) Content(source []byte) string {
+func (m *Function) Content() string {
 	if m.Location == nil {
 		return ""
 	}
-	start := m.Location.Start
-	if m.Comment != nil && m.Comment.Location.Start > 0 {
-		start = min(start, m.Comment.Location.Start)
-	}
-	if m.Annotation != nil && m.Annotation.Location.Start > 0 {
-		start = min(start, m.Annotation.Location.Start)
-	}
-	return string(source[start:m.Location.End])
+	return m.Location.Raw
 }
 
 // TypeParam represents a generic type parameter

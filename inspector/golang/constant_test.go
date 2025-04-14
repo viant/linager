@@ -2,7 +2,7 @@ package golang_test
 
 import (
 	"github.com/viant/linager/inspector/golang"
-	"github.com/viant/linager/inspector/info"
+	graph "github.com/viant/linager/inspector/graph"
 	"go/parser"
 	"go/token"
 	"reflect"
@@ -45,7 +45,7 @@ var (
 		t.Fatalf("Failed to parse source: %v", err)
 	}
 
-	inspector := golang.NewInspector(&info.Config{IncludeUnexported: true})
+	inspector := golang.NewInspector(&graph.Config{IncludeUnexported: true})
 
 	// Test constants
 	t.Run("test_constants", func(t *testing.T) {

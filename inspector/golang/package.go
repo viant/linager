@@ -2,7 +2,7 @@ package golang
 
 import (
 	"fmt"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"github.com/viant/linager/inspector/repository"
 	"go/ast"
 	"go/parser"
@@ -13,7 +13,7 @@ import (
 
 // InspectPackage inspects a Go package directory and extracts all types
 // This version loads only one package per folder (no recursive option)
-func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
+func (i *Inspector) InspectPackage(packagePath string) (*graph.Package, error) {
 	// Get the absolute path of the package
 	absPath, err := filepath.Abs(packagePath)
 	if err != nil {
@@ -21,7 +21,7 @@ func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
 	}
 
 	// Create the Package to hold all discovered files and types
-	pkg := &info.Package{
+	pkg := &graph.Package{
 		ImportPath: getImportPath(absPath),
 	}
 
@@ -46,14 +46,14 @@ func (i *Inspector) InspectPackage(packagePath string) (*info.Package, error) {
 }
 
 // InspectPackages inspects multiple Go package directories recursively
-func (i *Inspector) InspectPackages(rootPath string) ([]*info.Package, error) {
+func (i *Inspector) InspectPackages(rootPath string) ([]*graph.Package, error) {
 	// Get the absolute path of the root directory
 	absPath, err := filepath.Abs(rootPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	var packags []*info.Package
+	var packags []*graph.Package
 
 	// Walk the directory tree to find all potential package directories
 	err = filepath.Walk(absPath, func(aPath string, fileInfo os.FileInfo, err error) error {
@@ -91,9 +91,9 @@ func (i *Inspector) InspectPackages(rootPath string) ([]*info.Package, error) {
 }
 
 // inspectSinglePackage processes a single directory as a Go package
-func (i *Inspector) inspectSinglePackage(packageDir string) ([]*info.File, []*info.Asset, error) {
-	var files []*info.File
-	var assets []*info.Asset
+func (i *Inspector) inspectSinglePackage(packageDir string) ([]*graph.File, []*graph.Asset, error) {
+	var files []*graph.File
+	var assets []*graph.Asset
 
 	// Process Go files
 	pkgs, err := parser.ParseDir(i.fset, packageDir, func(info os.FileInfo) bool {
@@ -136,24 +136,24 @@ func (i *Inspector) inspectSinglePackage(packageDir string) ([]*info.File, []*in
 }
 
 // processParameters processes function parameters and extracts parameter information
-func (i *Inspector) processParameters(fields *ast.FieldList, importMap map[string]string) []info.Parameter {
-	var result []info.Parameter
+func (i *Inspector) processParameters(fields *ast.FieldList, importMap map[string]string) []graph.Parameter {
+	var result []graph.Parameter
 
 	for _, field := range fields.List {
 		paramType := exprToString(field.Type, importMap)
 
 		if len(field.Names) > 0 {
 			for _, name := range field.Names {
-				result = append(result, info.Parameter{
+				result = append(result, graph.Parameter{
 					Name: name.Name,
-					Type: &info.Type{Name: paramType},
+					Type: &graph.Type{Name: paramType},
 				})
 			}
 		} else {
 			// Unnamed parameter
-			result = append(result, info.Parameter{
+			result = append(result, graph.Parameter{
 				Name: "",
-				Type: &info.Type{Name: paramType},
+				Type: &graph.Type{Name: paramType},
 			})
 		}
 	}
@@ -161,8 +161,8 @@ func (i *Inspector) processParameters(fields *ast.FieldList, importMap map[strin
 	return result
 }
 
-func (i *Inspector) readAssetsRecursively(packageDir string, isRoot bool) ([]*info.Asset, error) {
-	var assets []*info.Asset
+func (i *Inspector) readAssetsRecursively(packageDir string, isRoot bool) ([]*graph.Asset, error) {
+	var assets []*graph.Asset
 	entries, err := os.ReadDir(packageDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory: %w", err)
@@ -194,7 +194,7 @@ func (i *Inspector) readAssetsRecursively(packageDir string, isRoot bool) ([]*in
 			return nil, fmt.Errorf("failed to read asset %s: %w", filePath, err)
 		}
 
-		asset := &info.Asset{
+		asset := &graph.Asset{
 			Path:       filePath,
 			ImportPath: getImportPath(packageDir),
 			Content:    content,
@@ -203,7 +203,7 @@ func (i *Inspector) readAssetsRecursively(packageDir string, isRoot bool) ([]*in
 	}
 
 	if hasGoFiles && !isRoot {
-		return []*info.Asset{}, nil
+		return []*graph.Asset{}, nil
 	}
 
 	for _, subFolder := range subFolders {

@@ -2,7 +2,7 @@ package java
 
 import (
 	sitter "github.com/smacker/go-tree-sitter"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"reflect"
 	"strings"
 )
@@ -43,7 +43,7 @@ func resolveJavaType(typeName string) (string, reflect.Kind) {
 }
 
 // extractTypeParameters extracts generic type parameters from a node
-func extractTypeParameters(node *sitter.Node, source []byte) []*info.TypeParam {
+func extractTypeParameters(node *sitter.Node, source []byte) []*graph.TypeParam {
 	// Look for type_parameters node
 	var typeParamNode *sitter.Node
 
@@ -59,7 +59,7 @@ func extractTypeParameters(node *sitter.Node, source []byte) []*info.TypeParam {
 		return nil
 	}
 
-	var params []*info.TypeParam
+	var params []*graph.TypeParam
 
 	// Process each type parameter
 	for i := uint32(0); i < typeParamNode.NamedChildCount(); i++ {
@@ -90,7 +90,7 @@ func extractTypeParameters(node *sitter.Node, source []byte) []*info.TypeParam {
 				constraint = "any"
 			}
 
-			params = append(params, &info.TypeParam{
+			params = append(params, &graph.TypeParam{
 				Name:       name,
 				Constraint: constraint,
 			})
@@ -134,11 +134,11 @@ func extractMethodBody(node *sitter.Node, source []byte) string {
 }
 
 // parseJavaType converts a Java type node to an info.Type
-func parseJavaType(node *sitter.Node, source []byte, importMap map[string]string) *info.Type {
+func parseJavaType(node *sitter.Node, source []byte, importMap map[string]string) *graph.Type {
 	// Create a basic type with location information
-	typeInfo := &info.Type{
+	typeInfo := &graph.Type{
 		Name: node.Content(source),
-		Location: &info.Location{
+		Location: &graph.Location{
 			Start: int(node.StartByte()),
 			End:   int(node.EndByte()),
 		},
@@ -237,7 +237,7 @@ func parseJavaType(node *sitter.Node, source []byte, importMap map[string]string
 				typeInfo.PackagePath = packagePath
 			}
 
-			var typeParams []*info.TypeParam
+			var typeParams []*graph.TypeParam
 
 			// Process type parameters
 			typeArgsNode := node.ChildByFieldName("type_arguments")
@@ -252,7 +252,7 @@ func parseJavaType(node *sitter.Node, source []byte, importMap map[string]string
 						if paramType.PackagePath != "" && !strings.Contains(paramName, ".") {
 							paramName = paramType.PackagePath + "." + paramName
 						}
-						typeParams = append(typeParams, &info.TypeParam{
+						typeParams = append(typeParams, &graph.TypeParam{
 							Name:       paramName,
 							Constraint: "any",
 						})

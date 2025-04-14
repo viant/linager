@@ -2,21 +2,21 @@ package java
 
 import (
 	"fmt"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"github.com/viant/linager/inspector/repository"
 	"os"
 	"path/filepath"
 )
 
 // InspectPackages inspects multiple Go package directories recursively
-func (i *Inspector) InspectPackages(rootPath string) ([]*info.Package, error) {
+func (i *Inspector) InspectPackages(rootPath string) ([]*graph.Package, error) {
 	// Get the absolute path of the root directory
 	absPath, err := filepath.Abs(rootPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	var packages []*info.Package
+	var packages []*graph.Package
 
 	// Walk the directory tree to find all potential package directories
 	err = filepath.Walk(absPath, func(aPath string, fileInfo os.FileInfo, err error) error {

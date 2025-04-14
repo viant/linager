@@ -1,15 +1,15 @@
 package golang
 
 import (
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"go/ast"
 	"go/token"
 	"strings"
 )
 
 // InspectConstants extracts constants from an AST file
-func (i *Inspector) InspectConstants(file *ast.File, importMap map[string]string) ([]*info.Constant, error) {
-	var constants []*info.Constant
+func (i *Inspector) InspectConstants(file *ast.File, importMap map[string]string) ([]*graph.Constant, error) {
+	var constants []*graph.Constant
 
 	for _, decl := range file.Decls {
 		genDecl, ok := decl.(*ast.GenDecl)
@@ -42,11 +42,11 @@ func (i *Inspector) InspectConstants(file *ast.File, importMap map[string]string
 				}
 
 				// Create constant with location info
-				constant := &info.Constant{
+				constant := &graph.Constant{
 					Name:    name.Name,
 					Value:   "", // Will be populated below
 					Comment: strings.TrimSpace(docText),
-					Location: &info.Location{
+					Location: &graph.Location{
 						Start: i.fset.Position(name.Pos()).Offset,
 						End:   i.fset.Position(name.End()).Offset,
 					},
@@ -60,10 +60,10 @@ func (i *Inspector) InspectConstants(file *ast.File, importMap map[string]string
 				// Extract type if available
 				if valueSpec.Type != nil {
 
-					var constType *info.Type
+					var constType *graph.Type
 					if valueSpec.Type != nil {
 						typeName := exprToString(valueSpec.Type, importMap)
-						constType = &info.Type{
+						constType = &graph.Type{
 							Name: typeName,
 							Kind: kindFromBasicType(typeName),
 						}
