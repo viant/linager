@@ -1,4 +1,4 @@
-package info
+package linage
 
 // DataPoint represents an identifier and its data lineage information
 type DataPoint struct {
@@ -27,8 +27,10 @@ type CodeLocation struct {
 
 // TouchContext provides context about where data is accessed
 type TouchContext struct {
+	Scope string `yaml:"scope"`
+
 	Function     string `yaml:"function,omitempty"`     // Function name
 	Method       string `yaml:"method,omitempty"`       // Method name
-	HolderType   string `yaml:"holderType,omitempty"`   // Type on which method is called
+	ParentType   string `yaml:"parentType,omitempty"`   // Type on which method is called
 	IsTransitive bool   `yaml:"isTransitive,omitempty"` // Whether this is a transitive access
 }

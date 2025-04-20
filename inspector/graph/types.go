@@ -72,6 +72,221 @@ func (m *Type) Content() string {
 	return builder.String()
 }
 
+// AddField adds a field to the type
+func (t *Type) AddField(field *Field) {
+	// Initialize fieldMap if it doesn't exist
+	if t.fieldMap == nil {
+		t.fieldMap = make(map[string]int)
+	}
+
+	// Add field to the fields slice
+	t.Fields = append(t.Fields, field)
+
+	// Update the field map
+	t.fieldMap[field.Name] = len(t.Fields) - 1
+}
+
+// RemoveField removes a field from the type by name
+func (t *Type) RemoveField(fieldName string) bool {
+	if t.fieldMap == nil {
+		return false
+	}
+
+	idx, ok := t.fieldMap[fieldName]
+	if !ok {
+		return false
+	}
+
+	// Remove the field from the fields slice
+	t.Fields = append(t.Fields[:idx], t.Fields[idx+1:]...)
+
+	// Rebuild the field map
+	delete(t.fieldMap, fieldName)
+	for i := idx; i < len(t.Fields); i++ {
+		t.fieldMap[t.Fields[i].Name] = i
+	}
+
+	return true
+}
+
+// AddMethod adds a method to the type
+func (t *Type) AddMethod(method *Function) {
+	// Initialize methodMap if it doesn't exist
+	if t.methodMap == nil {
+		t.methodMap = make(map[string]int)
+	}
+
+	// Add method to the methods slice
+	t.Methods = append(t.Methods, method)
+
+	// Update the method map
+	t.methodMap[method.Name] = len(t.Methods) - 1
+}
+
+// RemoveMethod removes a method from the type by name
+func (t *Type) RemoveMethod(methodName string) bool {
+	if t.methodMap == nil {
+		return false
+	}
+
+	idx, ok := t.methodMap[methodName]
+	if !ok {
+		return false
+	}
+
+	// Remove the method from the methods slice
+	t.Methods = append(t.Methods[:idx], t.Methods[idx+1:]...)
+
+	// Rebuild the method map
+	delete(t.methodMap, methodName)
+	for i := idx; i < len(t.Methods); i++ {
+		t.methodMap[t.Methods[i].Name] = i
+	}
+
+	return true
+}
+
+// Clone creates a deep copy of the type
+func (t *Type) Clone() *Type {
+	newType := &Type{
+		Name:          t.Name,
+		Kind:          t.Kind,
+		Tag:           t.Tag,
+		Package:       t.Package,
+		PackagePath:   t.PackagePath,
+		ComponentType: t.ComponentType,
+		KeyType:       t.KeyType,
+		IsExported:    t.IsExported,
+		IsPointer:     t.IsPointer,
+		Implements:    make([]string, len(t.Implements)),
+		Extends:       make([]string, len(t.Extends)),
+		TypeParams:    make([]*TypeParam, len(t.TypeParams)),
+	}
+
+	// Copy comment and annotation if they exist
+	if t.Comment != nil {
+		newType.Comment = &LocationNode{
+			Text:     t.Comment.Text,
+			Location: t.Comment.Location,
+		}
+	}
+
+	if t.Annotation != nil {
+		newType.Annotation = &LocationNode{
+			Text:     t.Annotation.Text,
+			Location: t.Annotation.Location,
+		}
+	}
+
+	// Copy location if it exists
+	if t.Location != nil {
+		newType.Location = &Location{
+			Raw:   t.Location.Raw,
+			Start: t.Location.Start,
+			End:   t.Location.End,
+		}
+	}
+
+	// Copy implements and extends
+	copy(newType.Implements, t.Implements)
+	copy(newType.Extends, t.Extends)
+
+	// Copy type parameters
+	for i, param := range t.TypeParams {
+		newType.TypeParams[i] = &TypeParam{
+			Name:       param.Name,
+			Constraint: param.Constraint,
+		}
+	}
+
+	// Initialize maps
+	newType.fieldMap = make(map[string]int)
+	newType.methodMap = make(map[string]int)
+
+	return newType
+}
+
+// CreateTypeFromFields creates a new type with the given name and selected fields
+func CreateTypeFromFields(name string, sourceType *Type, fieldNames []string) *Type {
+	newType := sourceType.Clone()
+	newType.Name = name
+	newType.Fields = []*Field{}
+	newType.fieldMap = make(map[string]int)
+
+	// Add selected fields
+	for _, fieldName := range fieldNames {
+		field := sourceType.GetField(fieldName)
+		if field != nil {
+			newType.AddField(field)
+		}
+	}
+
+	return newType
+}
+
+// CreateTypeFromMethods creates a new type with the given name and selected methods
+func CreateTypeFromMethods(name string, sourceType *Type, methodNames []string) *Type {
+	newType := sourceType.Clone()
+	newType.Name = name
+	newType.Methods = []*Function{}
+	newType.methodMap = make(map[string]int)
+
+	// Add selected methods
+	for _, methodName := range methodNames {
+		method := sourceType.GetMethod(methodName)
+		if method != nil {
+			newType.AddMethod(method)
+		}
+	}
+
+	return newType
+}
+
+// CreateCompositeType creates a new type by combining fields and methods from multiple types
+func CreateCompositeType(name string, sourceTypes []*Type, fieldNames [][]string, methodNames [][]string) *Type {
+	if len(sourceTypes) == 0 {
+		return nil
+	}
+
+	newType := &Type{
+		Name:       name,
+		Kind:       sourceTypes[0].Kind,
+		Package:    sourceTypes[0].Package,
+		PackagePath: sourceTypes[0].PackagePath,
+		IsExported: true,
+		Fields:     []*Field{},
+		Methods:    []*Function{},
+		fieldMap:   make(map[string]int),
+		methodMap:  make(map[string]int),
+	}
+
+	// Add fields from each source type
+	for i, sourceType := range sourceTypes {
+		if i < len(fieldNames) {
+			for _, fieldName := range fieldNames[i] {
+				field := sourceType.GetField(fieldName)
+				if field != nil {
+					newType.AddField(field)
+				}
+			}
+		}
+	}
+
+	// Add methods from each source type
+	for i, sourceType := range sourceTypes {
+		if i < len(methodNames) {
+			for _, methodName := range methodNames[i] {
+				method := sourceType.GetMethod(methodName)
+				if method != nil {
+					newType.AddMethod(method)
+				}
+			}
+		}
+	}
+
+	return newType
+}
+
 type LocationNode struct {
 	Text string
 	Location

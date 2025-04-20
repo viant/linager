@@ -2,7 +2,7 @@ package repository
 
 import (
 	"fmt"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,8 +37,8 @@ outer:
 	return false, nil
 }
 
-func ReadAssetsRecursively(packageDir string, isRoot bool, importPath func(relative string) string, skipExt ...string) ([]*structure.Asset, error) {
-	var assets []*structure.Asset
+func ReadAssetsRecursively(packageDir string, isRoot bool, importPath func(relative string) string, skipExt ...string) ([]*graph.Asset, error) {
+	var assets []*graph.Asset
 	entries, err := os.ReadDir(packageDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory: %w", err)
@@ -67,7 +67,7 @@ outer:
 			return nil, fmt.Errorf("failed to read asset %s: %w", filePath, err)
 		}
 
-		asset := &structure.Asset{
+		asset := &graph.Asset{
 			Path:       filePath,
 			ImportPath: importPath(packageDir),
 			Content:    content,
@@ -76,7 +76,7 @@ outer:
 	}
 
 	if hasGoFiles && !isRoot {
-		return []*structure.Asset{}, nil
+		return []*graph.Asset{}, nil
 	}
 	for _, subFolder := range subFolders {
 		subAssets, err := ReadAssetsRecursively(filepath.Join(packageDir, subFolder), false, importPath, skipExt...)

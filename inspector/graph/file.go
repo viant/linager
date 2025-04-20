@@ -1,5 +1,11 @@
 package graph
 
+// ContentGenerator defines an interface for generating content from a file
+type ContentGenerator interface {
+	// Generate generates content from a file
+	Emit(file *File) ([]byte, error)
+}
+
 // File represents a source code file with its types and symbols
 type File struct {
 	Name       string      // File name
@@ -169,4 +175,9 @@ type Asset struct {
 	Path       string
 	ImportPath string
 	Content    []byte
+}
+
+// Content reconstructs the content of a file from its components
+func (f *File) Content(generator Emitter) ([]byte, error) {
+	return generator.Emit(f)
 }

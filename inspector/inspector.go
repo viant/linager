@@ -7,34 +7,34 @@ import (
 	"strings"
 
 	"github.com/viant/linager/inspector/golang"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"github.com/viant/linager/inspector/java"
 )
 
 // Inspector provides an interface for inspecting source code
 type Inspector interface {
 	// InspectSource parses source code from a byte slice and extracts type information
-	InspectSource(src []byte) (*structure.File, error)
+	InspectSource(src []byte) (*graph.File, error)
 
 	// InspectFile parses a source file and extracts type information
-	InspectFile(filename string) (*structure.File, error)
+	InspectFile(filename string) (*graph.File, error)
 
 	// InspectPackage inspects a package directory and extracts all type information
-	InspectPackage(packagePath string) (*structure.Package, error)
+	InspectPackage(packagePath string) (*graph.Package, error)
 
 	// InspectProject inspects a project directory and extracts all type information
-	InspectProject(location string) (*structure.Project, error)
+	InspectProject(location string) (*graph.Project, error)
 }
 
 // Factory creates appropriate inspectors based on language
 type Factory struct {
-	config *structure.Config
+	config *graph.Config
 }
 
 // NewFactory creates a new inspector factory with the given config
-func NewFactory(config *structure.Config) *Factory {
+func NewFactory(config *graph.Config) *Factory {
 	if config == nil {
-		config = &structure.Config{
+		config = &graph.Config{
 			IncludeUnexported: true,
 			SkipTests:         true,
 		}
@@ -59,7 +59,7 @@ func (f *Factory) GetInspector(filename string) (Inspector, error) {
 }
 
 // InspectFile is a convenience method that gets the appropriate inspector and inspects the file
-func (f *Factory) InspectFile(filename string) (*structure.File, error) {
+func (f *Factory) InspectFile(filename string) (*graph.File, error) {
 	inspector, err := f.GetInspector(filename)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func (f *Factory) InspectFile(filename string) (*structure.File, error) {
 }
 
 // InspectPackage is a convenience method that gets the appropriate inspector for a package
-func (f *Factory) InspectPackage(packagePath string) (*structure.Package, error) {
+func (f *Factory) InspectPackage(packagePath string) (*graph.Package, error) {
 	// Try to determine language from files in the directory
 	entries, err := filepath.Glob(filepath.Join(packagePath, "*"))
 	if err != nil {
@@ -93,7 +93,7 @@ func (f *Factory) InspectPackage(packagePath string) (*structure.Package, error)
 }
 
 // InspectProject is a convenience method that gets the appropriate inspector for a package
-func (f *Factory) InspectProject(project *repository.Project) (*structure.Project, error) {
+func (f *Factory) InspectProject(project *repository.Project) (*graph.Project, error) {
 	switch project.Type {
 	case "go":
 		return golang.NewInspector(f.config).InspectProject(project.RootPath)

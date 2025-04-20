@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/viant/linager/inspector"
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 )
 
 func TestFactory_GetInspector(t *testing.T) {
@@ -38,7 +38,7 @@ func TestFactory_GetInspector(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			factory := inspector.NewFactory(&structure.Config{
+			factory := inspector.NewFactory(&graph.Config{
 				IncludeUnexported: true,
 			})
 

@@ -3,7 +3,7 @@ package java_test
 import (
 	"testing"
 
-	"github.com/viant/linager/inspector/info"
+	"github.com/viant/linager/inspector/graph"
 	"github.com/viant/linager/inspector/java"
 )
 
@@ -94,7 +94,7 @@ public class CustomList<E> implements Collection<E> {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			inspector := java.NewInspector(&structure.Config{IncludeUnexported: true})
+			inspector := java.NewInspector(&graph.Config{IncludeUnexported: true})
 			pkg, err := inspector.InspectSource([]byte(tt.source))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Inspector.InspectSource() error = %v, wantErr %v", err, tt.wantErr)
