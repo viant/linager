@@ -1,0 +1,176 @@
+[
+  {
+    "Identity": {
+      "Ref": "test.b",
+      "Module": "test",
+      "PkgPath": "test",
+      "Package": "test",
+      "ParentType": "",
+      "Name": "b",
+      "Kind": "variable",
+      "Scope": "",
+      "ParentScope": ""
+    },
+    "Definition": {
+      "FilePath": "test.go",
+      "LineNumber": 13,
+      "ColumnStart": 0,
+      "ColumnEnd": 0
+    },
+    "Metadata": {
+      "type": "Bar"
+    },
+    "Writes": [],
+    "Reads": [
+      {
+        "CodeLocation": {
+          "FilePath": "test.go",
+          "LineNumber": 17,
+          "ColumnStart": 0,
+          "ColumnEnd": 0
+        },
+        "Context": {
+          "Scope": "test.main.if_15_1",
+          "Function": "",
+          "Method": "",
+          "ParentType": "",
+          "IsTransitive": false
+        },
+        "Dependencies": null,
+        "ConditionalExpression": ""
+      }
+    ]
+  },
+  {
+    "Identity": {
+      "Ref": "test.p",
+      "Module": "test",
+      "PkgPath": "test",
+      "Package": "test",
+      "ParentType": "",
+      "Name": "p",
+      "Kind": "variable",
+      "Scope": "",
+      "ParentScope": ""
+    },
+    "Definition": {
+      "FilePath": "test.go",
+      "LineNumber": 15,
+      "ColumnStart": 0,
+      "ColumnEnd": 0
+    },
+    "Metadata": {
+      "type": "Foo"
+    },
+    "Writes": [],
+    "Reads": []
+  },
+  {
+    "Identity": {
+      "Ref": "test:Foo:Name",
+      "Module": "test",
+      "PkgPath": "test",
+      "Package": "test",
+      "ParentType": "Foo",
+      "Name": "Name",
+      "Kind": "field",
+      "Scope": "",
+      "ParentScope": ""
+    },
+    "Definition": {
+      "FilePath": "test.go",
+      "LineNumber": 4,
+      "ColumnStart": 0,
+      "ColumnEnd": 0
+    },
+    "Metadata": {
+      "type": "string"
+    },
+    "Writes": [],
+    "Reads": []
+  },
+  {
+    "Identity": {
+      "Ref": "test:Foo:Score",
+      "Module": "test",
+      "PkgPath": "test",
+      "Package": "test",
+      "ParentType": "Foo",
+      "Name": "Score",
+      "Kind": "field",
+      "Scope": "",
+      "ParentScope": ""
+    },
+    "Definition": {
+      "FilePath": "test.go",
+      "LineNumber": 5,
+      "ColumnStart": 0,
+      "ColumnEnd": 0
+    },
+    "Metadata": {
+      "type": "int"
+    },
+    "Writes": [],
+    "Reads": [
+      {
+        "CodeLocation": {
+          "FilePath": "test.go",
+          "LineNumber": 16,
+          "ColumnStart": 0,
+          "ColumnEnd": 0
+        },
+        "Context": {
+          "Scope": "test.main.if_15_1",
+          "Function": "",
+          "Method": "",
+          "ParentType": "",
+          "IsTransitive": false
+        },
+        "Dependencies": null,
+        "ConditionalExpression": ""
+      }
+    ]
+  },
+  {
+    "Identity": {
+      "Ref": "test:Bar:Name",
+      "Module": "test",
+      "PkgPath": "test",
+      "Package": "test",
+      "ParentType": "Bar",
+      "Name": "Name",
+      "Kind": "field",
+      "Scope": "",
+      "ParentScope": ""
+    },
+    "Definition": {
+      "FilePath": "test.go",
+      "LineNumber": 9,
+      "ColumnStart": 0,
+      "ColumnEnd": 0
+    },
+    "Metadata": {
+      "type": "string"
+    },
+    "Writes": [],
+    "Reads": [
+      {
+        "CodeLocation": {
+          "FilePath": "test.go",
+          "LineNumber": 17,
+          "ColumnStart": 0,
+          "ColumnEnd": 0
+        },
+        "Context": {
+          "Scope": "test.main.if_15_1",
+          "Function": "",
+          "Method": "",
+          "ParentType": "",
+          "IsTransitive": false
+        },
+        "Dependencies": null,
+        "ConditionalExpression": ""
+      }
+    ]
+  }
+]
