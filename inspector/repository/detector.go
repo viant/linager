@@ -72,6 +72,19 @@ func (d *Detector) DetectProject(filePath string, baseURL ...string) (*Project, 
 		info.Type = projectType
 	}
 
+	if projectType == "go" {
+		goModPath := filepath.Join(info.RootPath, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			data, err := os.ReadFile(goModPath)
+			if err == nil {
+				mod, _ := modfile.Parse(goModPath, data, nil)
+				if mod != nil {
+					info.GoModule = mod.Module
+				}
+			}
+		}
+	}
+
 	// Calculate relative path from project root to the file
 	relPath, err := filepath.Rel(info.RootPath, absPath)
 	if err != nil {

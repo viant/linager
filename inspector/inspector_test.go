@@ -29,6 +29,18 @@ func TestFactory_GetInspector(t *testing.T) {
 			inspector: "java",
 		},
 		{
+			name:      "JS file",
+			filename:  "test.js",
+			wantErr:   false,
+			inspector: "javascript",
+		},
+		{
+			name:      "JSX file",
+			filename:  "Component.jsx",
+			wantErr:   false,
+			inspector: "javascript",
+		},
+		{
 			name:      "Unsupported file",
 			filename:  "test.cpp",
 			wantErr:   true,

@@ -1,3 +1,4 @@
 .idea/
 bin/
 local_test.go
+.junie/

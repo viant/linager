@@ -9,6 +9,7 @@ import (
 	"github.com/viant/linager/inspector/golang"
 	"github.com/viant/linager/inspector/graph"
 	"github.com/viant/linager/inspector/java"
+	"github.com/viant/linager/inspector/javascript"
 )
 
 // Inspector provides an interface for inspecting source code
@@ -53,6 +54,8 @@ func (f *Factory) GetInspector(filename string) (Inspector, error) {
 		return golang.NewInspector(f.config), nil
 	case ".java":
 		return java.NewInspector(f.config), nil
+	case ".js", ".jsx":
+		return javascript.NewInspector(f.config), nil
 	default:
 		return nil, fmt.Errorf("unsupported file type: %s", ext)
 	}
@@ -86,6 +89,9 @@ func (f *Factory) InspectPackage(packagePath string) (*graph.Package, error) {
 		case ".java":
 			inspector := java.NewInspector(f.config)
 			return inspector.InspectPackage(packagePath)
+		case ".js", ".jsx":
+			inspector := javascript.NewInspector(f.config)
+			return inspector.InspectPackage(packagePath)
 		}
 	}
 
@@ -99,6 +105,8 @@ func (f *Factory) InspectProject(project *repository.Project) (*graph.Project, e
 		return golang.NewInspector(f.config).InspectProject(project.RootPath)
 	case "java":
 		return java.NewInspector(f.config).InspectProject(project.RootPath)
+	case "javascript":
+		return javascript.NewInspector(f.config).InspectProject(project.RootPath)
 	}
 	return nil, nil
 }
