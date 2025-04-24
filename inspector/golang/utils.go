@@ -349,7 +349,7 @@ func extractValueAsString(expr ast.Expr, fset *token.FileSet) string {
 	}
 }
 
-// kindFromBasicType returns the reflect.Kind for Go basic types
+// kindFromBasicType returns the reflect.Kind for Go go_basic.gox types
 func kindFromBasicType(typeName string) reflect.Kind {
 	switch strings.ToLower(typeName) {
 	case "bool":

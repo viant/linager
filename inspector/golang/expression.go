@@ -188,7 +188,7 @@ func (i *Inspector) InspectExpression(expr ast.Expr, importMap map[string]string
 	case *ast.CallExpr:
 		// Functions call - try to determine return type if possible
 		if ident, ok := e.Fun.(*ast.Ident); ok {
-			// Type conversions for basic types
+			// Type conversions for go_basic.gox types
 			kind := kindFromBasicType(ident.Name)
 			if kind != reflect.Invalid {
 				return &graph.Type{Name: ident.Name, Kind: kind}, nil

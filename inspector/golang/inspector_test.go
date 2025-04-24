@@ -18,7 +18,7 @@ func TestInspector_InspectSource(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "basic struct",
+			name: "go_basic.gox struct",
 			src: `package test
 
 			// Person represents a human

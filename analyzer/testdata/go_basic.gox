@@ -1,0 +1,20 @@
+package main
+
+import "fmt"
+
+type Foo struct {
+    ID   int
+    Name string
+}
+
+func main() {
+
+    f := Foo{}
+    // Simple variable assignment
+    x := 10
+    y := x
+    f.ID = y
+    f.Name = "test"
+
+    fmt.Printf("%v", f)
+}

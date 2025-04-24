@@ -1,0 +1,434 @@
+{
+  "path": "/test/dir",
+  "files": [
+    "test.go"
+  ],
+  "scopes": [
+    {
+      "id": "/test/dir:test.go",
+      "kind": "file",
+      "start": 0,
+      "end": 224,
+      "symbols": {
+        "Foo": {
+          "id": "/test/dir::test.go::33",
+          "name": "Foo",
+          "kind": "type",
+          "package": "/test/dir",
+          "file": "test.go",
+          "startByte": 33
+        },
+        "main": {
+          "id": "/test/dir:test.go.main",
+          "name": "main",
+          "kind": "func",
+          "package": "/test/dir",
+          "file": "/test/dir:test.go",
+          "startByte": 83,
+          "type": "func main()"
+        }
+      }
+    },
+    {
+      "id": "/test/dir:test.go.main",
+      "kind": "function",
+      "name": "main",
+      "start": 78,
+      "end": 224,
+      "symbols": {
+        "f": {
+          "id": "/test/dir::test.go::97",
+          "name": "f",
+          "kind": "var",
+          "package": "/test/dir",
+          "file": "test.go",
+          "startByte": 97,
+          "type": "Foo"
+        },
+        "fmt": {
+          "id": "/test/dir::test.go::203",
+          "name": "fmt",
+          "package": "fmt",
+          "file": "test.go",
+          "startByte": 203
+        },
+        "x": {
+          "id": "/test/dir::test.go::146",
+          "name": "x",
+          "kind": "var",
+          "package": "/test/dir",
+          "file": "test.go",
+          "startByte": 146,
+          "type": "int"
+        },
+        "y": {
+          "id": "/test/dir::test.go::158",
+          "name": "y",
+          "kind": "var",
+          "package": "/test/dir",
+          "file": "test.go",
+          "startByte": 158,
+          "type": "int"
+        }
+      }
+    }
+  ],
+  "idents": {
+    "/test/dir::test.go::102": {
+      "id": "/test/dir::test.go::102",
+      "name": "Foo",
+      "package": "/test/dir",
+      "file": "test.go",
+      "startByte": 102
+    },
+    "/test/dir::test.go::146": {
+      "id": "/test/dir::test.go::146",
+      "name": "x",
+      "kind": "var",
+      "package": "/test/dir",
+      "file": "test.go",
+      "startByte": 146,
+      "type": "int"
+    },
+    "/test/dir::test.go::158": {
+      "id": "/test/dir::test.go::158",
+      "name": "y",
+      "kind": "var",
+      "package": "/test/dir",
+      "file": "test.go",
+      "startByte": 158,
+      "type": "int"
+    },
+    "/test/dir::test.go::171": {
+      "id": "/test/dir::test.go::171",
+      "name": "ID",
+      "kind": "field",
+      "package": "/test/dir",
+      "file": "test.go",
+      "startByte": 171,
+      "type": "int",
+      "selector": {
+        "field": "ID",
+        "parent": {
+          "field": "f"
+        }
+      }
+    },
+    "/test/dir::test.go::184": {
+      "id": "/test/dir::test.go::184",
+      "name": "Name",
+      "kind": "field",
+      "package": "/test/dir",
+      "file": "test.go",
+      "startByte": 184,
+      "type": "string",
+      "selector": {
+        "field": "Name",
+        "parent": {
+          "field": "f"
+        }
+      }
+    },
+    "/test/dir::test.go::203": {
+      "id": "/test/dir::test.go::203",
+      "name": "fmt",
+      "package": "fmt",
+      "file": "test.go",
+      "startByte": 203
+    },
+    "/test/dir::test.go::207": {
+      "id": "/test/dir::test.go::207",
+      "name": "Printf",
+      "kind": "func",
+      "package": "/test/dir",
+      "file": "test.go",
+      "startByte": 207,
+      "type": "func",
+      "selector": {
+        "field": "Printf",
+        "parent": {
+          "field": "fmt"
+        }
+      }
+    },
+    "/test/dir::test.go::33": {
+      "id": "/test/dir::test.go::33",
+      "name": "Foo",
+      "kind": "type",
+      "package": "/test/dir",
+      "file": "test.go",
+      "startByte": 33
+    },
+    "/test/dir::test.go::97": {
+      "id": "/test/dir::test.go::97",
+      "name": "f",
+      "kind": "var",
+      "package": "/test/dir",
+      "file": "test.go",
+      "startByte": 97,
+      "type": "Foo"
+    }
+  },
+  "dataflows": [
+    {
+      "src": {
+        "id": "/test/dir::test.go::102",
+        "name": "Foo",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 102
+      },
+      "dst": {
+        "id": "/test/dir::test.go::97",
+        "name": "f",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 97,
+        "type": "Foo"
+      },
+      "kind": "WRITE",
+      "scope": "/test/dir:test.go.main"
+    },
+    {
+      "src": {
+        "id": "/test/dir::test.go::146",
+        "name": "x",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 146,
+        "type": "int"
+      },
+      "dst": {
+        "id": "/test/dir::test.go::146",
+        "name": "x",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 146,
+        "type": "int"
+      },
+      "kind": "WRITE",
+      "scope": "/test/dir:test.go.main"
+    },
+    {
+      "src": {
+        "id": "/test/dir::test.go::158",
+        "name": "y",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 158,
+        "type": "int"
+      },
+      "dst": {
+        "id": "/test/dir::test.go::158",
+        "name": "y",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 158,
+        "type": "int"
+      },
+      "kind": "WRITE",
+      "scope": "/test/dir:test.go.main"
+    },
+    {
+      "src": {
+        "id": "/test/dir::test.go::146",
+        "name": "x",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 146,
+        "type": "int"
+      },
+      "dst": {
+        "id": "/test/dir::test.go::146",
+        "name": "x",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 146,
+        "type": "int"
+      },
+      "kind": "READ",
+      "scope": "/test/dir:test.go.main"
+    },
+    {
+      "src": {
+        "id": "/test/dir::test.go::146",
+        "name": "x",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 146,
+        "type": "int"
+      },
+      "dst": {
+        "id": "/test/dir::test.go::158",
+        "name": "y",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 158,
+        "type": "int"
+      },
+      "kind": "XFER",
+      "scope": "/test/dir:test.go.main"
+    },
+    {
+      "src": {
+        "id": "/test/dir::test.go::171",
+        "name": "ID",
+        "kind": "field",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 171,
+        "type": "int",
+        "selector": {
+          "field": "ID",
+          "parent": {
+            "field": "f"
+          }
+        }
+      },
+      "dst": {
+        "id": "/test/dir::test.go::171",
+        "name": "ID",
+        "kind": "field",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 171,
+        "type": "int",
+        "selector": {
+          "field": "ID",
+          "parent": {
+            "field": "f"
+          }
+        }
+      },
+      "kind": "WRITE",
+      "scope": "/test/dir:test.go.main"
+    },
+    {
+      "src": {
+        "id": "/test/dir::test.go::158",
+        "name": "y",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 158,
+        "type": "int"
+      },
+      "dst": {
+        "id": "/test/dir::test.go::158",
+        "name": "y",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 158,
+        "type": "int"
+      },
+      "kind": "READ",
+      "scope": "/test/dir:test.go.main"
+    },
+    {
+      "src": {
+        "id": "/test/dir::test.go::158",
+        "name": "y",
+        "kind": "var",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 158,
+        "type": "int"
+      },
+      "dst": {
+        "id": "/test/dir::test.go::171",
+        "name": "ID",
+        "kind": "field",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 171,
+        "type": "int",
+        "selector": {
+          "field": "ID",
+          "parent": {
+            "field": "f"
+          }
+        }
+      },
+      "kind": "XFER",
+      "scope": "/test/dir:test.go.main"
+    },
+    {
+      "src": {
+        "id": "/test/dir::test.go::184",
+        "name": "Name",
+        "kind": "field",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 184,
+        "type": "string",
+        "selector": {
+          "field": "Name",
+          "parent": {
+            "field": "f"
+          }
+        }
+      },
+      "dst": {
+        "id": "/test/dir::test.go::184",
+        "name": "Name",
+        "kind": "field",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 184,
+        "type": "string",
+        "selector": {
+          "field": "Name",
+          "parent": {
+            "field": "f"
+          }
+        }
+      },
+      "kind": "WRITE",
+      "scope": "/test/dir:test.go.main"
+    },
+    {
+      "src": {
+        "id": "/test/dir::test.go::207",
+        "name": "Printf",
+        "kind": "func",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 207,
+        "type": "func",
+        "selector": {
+          "field": "Printf",
+          "parent": {
+            "field": "fmt"
+          }
+        }
+      },
+      "dst": {
+        "id": "/test/dir::test.go::207",
+        "name": "Printf",
+        "kind": "func",
+        "package": "/test/dir",
+        "file": "test.go",
+        "startByte": 207,
+        "type": "func",
+        "selector": {
+          "field": "Printf",
+          "parent": {
+            "field": "fmt"
+          }
+        }
+      },
+      "kind": "CALL",
+      "scope": "/test/dir:test.go.main"
+    }
+  ]
+}

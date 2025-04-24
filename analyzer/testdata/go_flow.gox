@@ -1,0 +1,30 @@
+package dao
+
+import (
+    "context"
+    "database/sql"
+
+    "github.com/viant/sqlx/io/insert"
+    "github.com/viant/sqlx/option"
+    "github.com/viant/sqlx/metadata/info"
+    "github.com/myapp/example/model"
+)
+
+type CustomerDAO struct {
+    inserter insert.Service
+    db       *sql.DB
+}
+
+func NewCustomerDAO(db *sql.DB) (*CustomerDAO, error) {
+    ctx := context.Background()
+    inserter, err := insert.New(ctx, db, "mytable")
+    if err != nil {
+        return nil, err
+    }
+    return &CustomerDAO{inserter: inserter, db: db}, nil
+}
+
+func (d *CustomerDAO) InsertCustomer(ctx context.Context, customer *model.Customer) error {
+    _, err := d.inserter.Exec(ctx, customer)
+    return err
+}

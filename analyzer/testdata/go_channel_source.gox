@@ -1,0 +1,8 @@
+package main
+
+func main() {
+    val := 1
+    ch := make(chan int)
+    ch <- val
+    x := <-ch
+}

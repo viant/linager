@@ -2,19 +2,12 @@ package linage
 
 // DataPoint represents an identifier and its data lineage information
 type DataPoint struct {
-	Identity   Identity               `yaml:"identity"`           // Identity information
+	Identifier `yaml:"identity"`      // Identity information
 	Definition CodeLocation           `yaml:"definition"`         // Where the identifier is defined
 	Metadata   map[string]interface{} `yaml:"metadata,omitempty"` // Additional metadata
-	Writes     []*TouchPoint          `yaml:"writes,omitempty"`   // Where the identifier is written
-	Reads      []*TouchPoint          `yaml:"reads,omitempty"`    // Where the identifier is read
-}
-
-// TouchPoint represents a single point where data is read or written
-type TouchPoint struct {
-	CodeLocation          CodeLocation  `yaml:"codeLocation"`                    // Location in code
-	Context               TouchContext  `yaml:"context,omitempty"`               // Context information
-	Dependencies          []IdentityRef `yaml:"dependencies,omitempty"`          // Dependencies for this touch point
-	ConditionalExpression string        `yaml:"conditionalExpression,omitempty"` // Condition under which this happens
+	Writes     []*DataFlowEdge        `yaml:"writes,omitempty"`   // Where the identifier is written
+	Reads      []*DataFlowEdge        `yaml:"reads,omitempty"`    // Where the identifier is read
+	Calls      []*DataFlowEdge        `yaml:"calls,omitempty"`    // Where the identifier is called
 }
 
 // CodeLocation represents a location in the code

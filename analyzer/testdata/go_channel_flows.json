@@ -1,0 +1,4 @@
+[
+  { "src": "val", "dst": "ch", "scope": ":test.go.main", "kind": "XFER" },
+  { "src": "ch",  "dst": "x",  "scope": ":test.go.main", "kind": "XFER" }
+]

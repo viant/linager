@@ -1,0 +1,15 @@
+ok
+package main
+
+// a simple identity and two callers for context-sensitivity test
+func identity(x int) int { return x }
+
+func caller1() {
+    a := 1
+    r1 := identity(a)
+}
+
+func caller2() {
+    b := 2
+    r2 := identity(b)
+}

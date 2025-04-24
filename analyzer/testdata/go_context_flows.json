@@ -1,0 +1,3 @@
+[
+  { "src": "x", "dst": "identity", "scope": ":test.go.identity", "kind": "XFER" }
+]

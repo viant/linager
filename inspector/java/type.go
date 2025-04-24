@@ -135,7 +135,7 @@ func extractMethodBody(node *sitter.Node, source []byte) string {
 
 // parseJavaType converts a Java type node to an info.Type
 func parseJavaType(node *sitter.Node, source []byte, importMap map[string]string) *graph.Type {
-	// Create a basic type with location information
+	// Create a go_basic.gox type with location information
 	typeInfo := &graph.Type{
 		Name: node.Content(source),
 		Location: &graph.Location{

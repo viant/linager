@@ -135,7 +135,7 @@ func kindFromTypeName(typeName string) interface{} {
 		baseName = baseName[:idx]
 	}
 
-	// Check if it's a basic type
+	// Check if it's a go_basic.gox type
 	if kind := kindFromBasicType(baseName); kind != reflect.Invalid {
 		return kind
 	}

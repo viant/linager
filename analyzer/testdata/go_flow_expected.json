@@ -1,0 +1,377 @@
+{
+  "path": "/app/dao",
+  "files": [
+    "customer_dao.go"
+  ],
+  "scopes": [
+    {
+      "id": "/app/dao:customer_dao.go",
+      "kind": "file",
+      "start": 0,
+      "end": 692,
+      "symbols": {
+        "CustomerDAO": {
+          "id": "/app/dao::customer_dao.go::216",
+          "name": "CustomerDAO",
+          "kind": "type",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 216
+        },
+        "NewCustomerDAO": {
+          "id": "/app/dao:customer_dao.go.NewCustomerDAO",
+          "name": "NewCustomerDAO",
+          "kind": "func",
+          "package": "/app/dao",
+          "file": "/app/dao:customer_dao.go",
+          "startByte": 294,
+          "type": "func NewCustomerDAO(db *sql.DB) (*CustomerDAO, error)"
+        }
+      }
+    },
+    {
+      "id": "/app/dao:customer_dao.go.NewCustomerDAO",
+      "kind": "function",
+      "name": "NewCustomerDAO",
+      "start": 289,
+      "end": 537,
+      "symbols": {
+        "context": {
+          "id": "/app/dao::customer_dao.go::356",
+          "name": "context",
+          "package": "context",
+          "file": "customer_dao.go",
+          "startByte": 356
+        },
+        "ctx": {
+          "id": "/app/dao::customer_dao.go::349",
+          "name": "ctx",
+          "kind": "var",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 349
+        },
+        "db": {
+          "id": "/app/dao::customer_dao.go::414",
+          "name": "db",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 414
+        },
+        "err": {
+          "id": "/app/dao::customer_dao.go::391",
+          "name": "err",
+          "kind": "var",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 391
+        },
+        "insert": {
+          "id": "/app/dao::customer_dao.go::398",
+          "name": "insert",
+          "package": "github.com/viant/sqlx/io/insert",
+          "file": "customer_dao.go",
+          "startByte": 398
+        },
+        "inserter": {
+          "id": "/app/dao::customer_dao.go::381",
+          "name": "inserter",
+          "kind": "var",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 381
+        }
+      }
+    },
+    {
+      "id": "/app/dao:customer_dao.go.NewCustomerDAO.block@447",
+      "kind": "block",
+      "start": 447,
+      "end": 478
+    },
+    {
+      "id": "/app/dao:customer_dao.go.block@629",
+      "kind": "block",
+      "start": 629,
+      "end": 692,
+      "symbols": {
+        "_": {
+          "id": "/app/dao::customer_dao.go::635",
+          "name": "_",
+          "kind": "var",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 635
+        },
+        "ctx": {
+          "id": "/app/dao::customer_dao.go::661",
+          "name": "ctx",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 661
+        },
+        "customer": {
+          "id": "/app/dao::customer_dao.go::666",
+          "name": "customer",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 666
+        },
+        "d.inserter": {
+          "id": "/app/dao::customer_dao.go::645",
+          "name": "d.inserter",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 645
+        },
+        "err": {
+          "id": "/app/dao::customer_dao.go::638",
+          "name": "err",
+          "kind": "var",
+          "package": "/app/dao",
+          "file": "customer_dao.go",
+          "startByte": 638
+        }
+      }
+    }
+  ],
+  "idents": {
+    "/app/dao::customer_dao.go::216": {
+      "id": "/app/dao::customer_dao.go::216",
+      "name": "CustomerDAO",
+      "kind": "type",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 216
+    },
+    "/app/dao::customer_dao.go::349": {
+      "id": "/app/dao::customer_dao.go::349",
+      "name": "ctx",
+      "kind": "var",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 349
+    },
+    "/app/dao::customer_dao.go::356": {
+      "id": "/app/dao::customer_dao.go::356",
+      "name": "context",
+      "package": "context",
+      "file": "customer_dao.go",
+      "startByte": 356
+    },
+    "/app/dao::customer_dao.go::364": {
+      "id": "/app/dao::customer_dao.go::364",
+      "name": "Background",
+      "kind": "func",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 364,
+      "type": "func",
+      "selector": {
+        "field": "Background",
+        "parent": {
+          "field": "context"
+        }
+      }
+    },
+    "/app/dao::customer_dao.go::381": {
+      "id": "/app/dao::customer_dao.go::381",
+      "name": "inserter",
+      "kind": "var",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 381
+    },
+    "/app/dao::customer_dao.go::391": {
+      "id": "/app/dao::customer_dao.go::391",
+      "name": "err",
+      "kind": "var",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 391
+    },
+    "/app/dao::customer_dao.go::398": {
+      "id": "/app/dao::customer_dao.go::398",
+      "name": "insert",
+      "package": "github.com/viant/sqlx/io/insert",
+      "file": "customer_dao.go",
+      "startByte": 398
+    },
+    "/app/dao::customer_dao.go::405": {
+      "id": "/app/dao::customer_dao.go::405",
+      "name": "New",
+      "kind": "func",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 405,
+      "type": "func",
+      "selector": {
+        "field": "New",
+        "parent": {
+          "field": "insert"
+        }
+      }
+    },
+    "/app/dao::customer_dao.go::414": {
+      "id": "/app/dao::customer_dao.go::414",
+      "name": "db",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 414
+    },
+    "/app/dao::customer_dao.go::635": {
+      "id": "/app/dao::customer_dao.go::635",
+      "name": "_",
+      "kind": "var",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 635
+    },
+    "/app/dao::customer_dao.go::638": {
+      "id": "/app/dao::customer_dao.go::638",
+      "name": "err",
+      "kind": "var",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 638
+    },
+    "/app/dao::customer_dao.go::645": {
+      "id": "/app/dao::customer_dao.go::645",
+      "name": "d.inserter",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 645
+    },
+    "/app/dao::customer_dao.go::656": {
+      "id": "/app/dao::customer_dao.go::656",
+      "name": "Exec",
+      "kind": "func",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 656,
+      "type": "func",
+      "selector": {
+        "field": "Exec",
+        "parent": {
+          "field": "d.inserter"
+        }
+      }
+    },
+    "/app/dao::customer_dao.go::661": {
+      "id": "/app/dao::customer_dao.go::661",
+      "name": "ctx",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 661
+    },
+    "/app/dao::customer_dao.go::666": {
+      "id": "/app/dao::customer_dao.go::666",
+      "name": "customer",
+      "package": "/app/dao",
+      "file": "customer_dao.go",
+      "startByte": 666
+    }
+  },
+  "dataflows": [
+    {
+      "src": {
+        "id": "/app/dao::customer_dao.go::349",
+        "name": "ctx",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 349
+      },
+      "dst": {
+        "id": "/app/dao::customer_dao.go::349",
+        "name": "ctx",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 349
+      },
+      "kind": "WRITE",
+      "scope": "/app/dao:customer_dao.go.NewCustomerDAO"
+    },
+    {
+      "src": {
+        "id": "/app/dao::customer_dao.go::381",
+        "name": "inserter",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 381
+      },
+      "dst": {
+        "id": "/app/dao::customer_dao.go::381",
+        "name": "inserter",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 381
+      },
+      "kind": "WRITE",
+      "scope": "/app/dao:customer_dao.go.NewCustomerDAO"
+    },
+    {
+      "src": {
+        "id": "/app/dao::customer_dao.go::391",
+        "name": "err",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 391
+      },
+      "dst": {
+        "id": "/app/dao::customer_dao.go::391",
+        "name": "err",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 391
+      },
+      "kind": "WRITE",
+      "scope": "/app/dao:customer_dao.go.NewCustomerDAO"
+    },
+    {
+      "src": {
+        "id": "/app/dao::customer_dao.go::635",
+        "name": "_",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 635
+      },
+      "dst": {
+        "id": "/app/dao::customer_dao.go::635",
+        "name": "_",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 635
+      },
+      "kind": "WRITE",
+      "scope": "/app/dao:customer_dao.go.block@629"
+    },
+    {
+      "src": {
+        "id": "/app/dao::customer_dao.go::638",
+        "name": "err",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 638
+      },
+      "dst": {
+        "id": "/app/dao::customer_dao.go::638",
+        "name": "err",
+        "kind": "var",
+        "package": "/app/dao",
+        "file": "customer_dao.go",
+        "startByte": 638
+      },
+      "kind": "WRITE",
+      "scope": "/app/dao:customer_dao.go.block@629"
+    }
+  ]
+}

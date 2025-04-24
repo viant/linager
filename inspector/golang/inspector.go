@@ -326,7 +326,7 @@ func (i *Inspector) processFile(file *ast.File, filename string) (*graph.File, e
 			t.IsPointer = true
 			t.ComponentType = exprToString(typeExpr.X, importMap)
 		case *ast.Ident:
-			// Type alias (ts.Assign != 0) or basic type
+			// Type alias (ts.Assign != 0) or go_basic.gox type
 			if ts.Assign != 0 {
 				// Type alias
 				t.Kind = reflect.String // Default to String for type alias
