@@ -11,6 +11,7 @@ import (
 	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/smacker/go-tree-sitter/javascript"
 	"github.com/viant/linager/inspector/graph"
+	"github.com/viant/linager/inspector/repository"
 )
 
 // Inspector provides functionality to inspect JSX code and extract type information
@@ -721,4 +722,87 @@ func containsJSX(node *sitter.Node, src []byte) bool {
 		}
 	}
 	return false
+}
+
+// InspectProject inspects a JavaScript/JSX project directory and extracts all type information
+func (i *Inspector) InspectProject(location string) (*graph.Project, error) {
+	detector := repository.New()
+	project := &graph.Project{}
+	if info, err := detector.DetectProject(location); err == nil {
+		project.Name = info.Name
+		project.Type = info.Type
+		project.RootPath = info.RootPath
+		if info.RootPath != "" {
+			location = info.RootPath
+		}
+	}
+	if info, err := detector.DetectRepository(location); err == nil {
+		project.RepositoryURL = info.Origin
+	}
+
+	// Walk through the project directory
+	project.Packages = []*graph.Package{}
+	err := filepath.Walk(location, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip node_modules directory
+		if info.IsDir() && info.Name() == "node_modules" {
+			return filepath.SkipDir
+		}
+
+		// Skip hidden directories
+		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+			return filepath.SkipDir
+		}
+
+		// Only process directories
+		if !info.IsDir() {
+			return nil
+		}
+
+		// Check if directory contains JS/JSX files
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return err
+		}
+
+		hasJSFiles := false
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				ext := strings.ToLower(filepath.Ext(entry.Name()))
+				if ext == ".js" || ext == ".jsx" || ext == ".ts" || ext == ".tsx" {
+					hasJSFiles = true
+					break
+				}
+			}
+		}
+
+		if !hasJSFiles {
+			return nil
+		}
+
+		// Inspect the package
+		pkg, err := i.InspectPackage(path)
+		if err != nil {
+			// Skip packages that can't be inspected
+			return nil
+		}
+
+		// Add package to project
+		project.Packages = append(project.Packages, pkg)
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("error walking project directory: %w", err)
+	}
+
+	if len(project.Packages) == 0 {
+		return nil, fmt.Errorf("no JavaScript/JSX packages found in project: %s", location)
+	}
+
+	project.Init()
+	return project, nil
 }

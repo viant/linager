@@ -9,7 +9,7 @@ import (
 	"github.com/viant/linager/inspector/golang"
 	"github.com/viant/linager/inspector/graph"
 	"github.com/viant/linager/inspector/java"
-	"github.com/viant/linager/inspector/javascript"
+	javascript "github.com/viant/linager/inspector/jsx"
 )
 
 // Inspector provides an interface for inspecting source code
@@ -98,7 +98,7 @@ func (f *Factory) InspectPackage(packagePath string) (*graph.Package, error) {
 	return nil, fmt.Errorf("unable to determine language for package: %s", packagePath)
 }
 
-// InspectProject is a convenience method that gets the appropriate inspector for a package
+// InspectProject is a convenience method that gets the appropriate inspector for a project
 func (f *Factory) InspectProject(project *repository.Project) (*graph.Project, error) {
 	switch project.Type {
 	case "go":

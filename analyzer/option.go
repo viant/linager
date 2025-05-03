@@ -35,7 +35,7 @@ func WithLanguageName(name string) Option {
 	}
 }
 
-func WithMacher(matcher MatcherFn) Option {
+func WithMatcher(matcher MatcherFn) Option {
 	return func(a *Analyzer) {
 		a.match = matcher
 	}
@@ -92,4 +92,23 @@ func JavaFiles(info os.FileInfo) bool {
 	}
 	name := info.Name()
 	return filepath.Ext(name) == ".java"
+}
+
+// JSXFiles matches JavaScript/JSX/TypeScript source files and skips common directories.
+func JSXFiles(info os.FileInfo) bool {
+	if info.IsDir() {
+		name := info.Name()
+		// skip node_modules and git dirs
+		if name == "node_modules" || name == ".git" {
+			return false
+		}
+		return true
+	}
+	ext := strings.ToLower(filepath.Ext(info.Name()))
+	switch ext {
+	case ".js", ".jsx", ".ts", ".tsx":
+		return true
+	default:
+		return false
+	}
 }

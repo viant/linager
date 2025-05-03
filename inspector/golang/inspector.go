@@ -33,7 +33,7 @@ func NewInspector(config *graph.Config) *Inspector {
 const defaultFilename = "source.go"
 
 // InspectSource parses Go source code from a byte slice and extracts types
-func (i *Inspector) InspectSource(src []byte) ([]*graph.Type, error) {
+func (i *Inspector) InspectSource(src []byte) (*graph.File, error) {
 	filename := defaultFilename
 	i.src = src // Store source for method body extraction
 	file, err := parser.ParseFile(i.fset, filename, src, parser.ParseComments)
@@ -45,7 +45,7 @@ func (i *Inspector) InspectSource(src []byte) ([]*graph.Type, error) {
 	if err != nil {
 		return nil, err
 	}
-	return infoFile.Types, nil
+	return infoFile, nil
 }
 
 // InspectFile parses a Go source file and extracts types
